@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitus Finance - Upload de Dados</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-green: #2FCB6E;
+            --primary-green-dark: #27a359;
+            --primary-green-light: #7fe0a3;
+            --primary-green-subtle: rgba(47, 203, 110, 0.1);
+            --black: #000000;
+            --black-light: #333333;
+            --white: #ffffff;
+            --light-gray: #f7f9fc;
+            --mid-gray: #e5e7eb;
+            --text-gray: #6b7280;
+        }
+        
+        body {
+            background-color: var(--light-gray);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .sidebar {
+            height: 100vh;
+            background-color: var(--black);
+            color: white;
+            position: fixed;
+            width: 250px;
+        }
+        .sidebar .logo {
+            padding: 20px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            padding: 12px 20px;
+            margin-bottom: 5px;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: var(--primary-green);
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        .upload-options {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .upload-card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .upload-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+        .upload-card i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: var(--primary-green);
+        }
+        .upload-card h3 {
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        .upload-card p {
+            color: var(--text-gray);
+            margin-bottom: 25px;
+        }
+        .btn-primary {
+            background-color: var(--primary-green);
+            border-color: var(--primary-green);
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+        .btn-primary:hover, .btn-primary:active, .btn-primary:focus {
+            background-color: var(--primary-green-dark) !important;
+            border-color: var(--primary-green-dark) !important;
+        }
+        .btn-outline-primary {
+            color: var(--primary-green);
+            border-color: var(--primary-green);
+        }
+        .btn-outline-primary:hover {
+            background-color: var(--primary-green-subtle);
+            color: var(--primary-green);
+        }
+        .btn-outline-secondary:hover {
+            background-color: var(--primary-green-subtle);
+            color: var(--primary-green);
+            border-color: var(--primary-green);
+        }
+        .form-area {
+            margin-top: 30px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+        }
+        .nav-tabs .nav-link {
+            color: var(--text-gray);
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--primary-green);
+            font-weight: 600;
+        }
+        .text-success {
+            color: var(--primary-green) !important;
+        }
+        .table-light {
+            background-color: var(--light-gray);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="logo">
+            <h4>Habitus Finance</h4>
+        </div>
+        <div class="mt-4">
+            <a href="#" class="nav-link">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="#" class="nav-link active">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Dados Financeiros
+            </a>
+            <a href="#" class="nav-link">
+                <i class="bi bi-graph-up-arrow"></i> Cenários
+            </a>
+            <a href="#" class="nav-link">
+                <i class="bi bi-file-earmark-pdf"></i> Relatórios
+            </a>
+            <a href="#" class="nav-link">
+                <i class="bi bi-gear"></i> Configurações
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Importação de Dados Financeiros</h2>
+            <div>
+                <span class="me-3">Olá, João</span>
+                <a href="#" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-box-arrow-right"></i> Sair
+                </a>
+            </div>
+        </div>
+
+        <p class="text-muted">Escolha como deseja inserir seus dados financeiros para criar simulações.</p>
+
+        <!-- Upload Options -->
+        <div class="upload-options">
+            <div class="upload-card">
+                <i class="bi bi-file-earmark-excel"></i>
+                <h3>Upload de Planilha</h3>
+                <p>Faça upload de uma planilha Excel existente com seus dados financeiros.</p>
+                <button class="btn btn-primary">Selecionar Arquivo</button>
+            </div>
+            <div class="upload-card">
+                <i class="bi bi-input-cursor-text"></i>
+                <h3>Inserção Manual</h3>
+                <p>Insira seus dados financeiros manualmente através do formulário.</p>
+                <button class="btn btn-outline-primary">Preencher Formulário</button>
+            </div>
+        </div>
+
+        <!-- Manual Entry Form -->
+        <div class="form-area">
+            <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="revenue-tab" data-bs-toggle="tab" data-bs-target="#revenue" type="button" role="tab" aria-controls="revenue" aria-selected="true">Receitas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="variable-costs-tab" data-bs-toggle="tab" data-bs-target="#variable-costs" type="button" role="tab" aria-controls="variable-costs" aria-selected="false">Custos Variáveis</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="fixed-expenses-tab" data-bs-toggle="tab" data-bs-target="#fixed-expenses" type="button" role="tab" aria-controls="fixed-expenses" aria-selected="false">Despesas Fixas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="investments-tab" data-bs-toggle="tab" data-bs-target="#investments" type="button" role="tab" aria-controls="investments" aria-selected="false">Investimentos</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="myTabContent">
+                <div class="tab-pane fade show active" id="revenue" role="tabpanel" aria-labelledby="revenue-tab">
+                    <h5 class="mb-3">Receitas Mensais</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mês</th>
+                                    <th>Receita Bruta</th>
+                                    <th>Contas a Receber (30d)</th>
+                                    <th>Contas a Receber (60d)</th>
+                                    <th>Contas a Receber (90d+)</th>
+                                    <th>Taxa de Inadimplência (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Janeiro</td>
+                                    <td><input type="number" class="form-control form-control-sm" value="50000"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="15000"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="5000"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2500"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2"></td>
+                                </tr>
+                                <tr>
+                                    <td>Fevereiro</td>
+                                    <td><input type="number" class="form-control form-control-sm" value="52000"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="15600"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="5200"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2600"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2"></td>
+                                </tr>
+                                <tr>
+                                    <td>Março</td>
+                                    <td><input type="number" class="form-control form-control-sm" value="55000"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="16500"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="5500"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2750"></td>
+                                    <td><input type="number" class="form-control form-control-sm" value="2"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button class="btn btn-secondary me-2">Cancelar</button>
+                        <button class="btn btn-primary">Avançar</button>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="variable-costs" role="tabpanel" aria-labelledby="variable-costs-tab">
+                    <h5 class="mb-3">Custos Variáveis</h5>
+                    <p class="text-muted">Informações de custos variáveis mensais serão inseridas aqui.</p>
+                </div>
+                
+                <div class="tab-pane fade" id="fixed-expenses" role="tabpanel" aria-labelledby="fixed-expenses-tab">
+                    <h5 class="mb-3">Despesas Fixas</h5>
+                    <p class="text-muted">Informações de despesas fixas mensais serão inseridas aqui.</p>
+                </div>
+                
+                <div class="tab-pane fade" id="investments" role="tabpanel" aria-labelledby="investments-tab">
+                    <h5 class="mb-3">Investimentos e Financiamentos</h5>
+                    <p class="text-muted">Informações de investimentos e financiamentos serão inseridas aqui.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f7f9fc;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Estilo visual baseado nos mockups */
+@layer components {
+  .card {
+    @apply bg-white rounded-card shadow-card border-none overflow-hidden;
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-md border-primary hover:border-primary-600 transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-gray-300 text-gray-700 hover:bg-gray-50 py-2 px-4 rounded-md transition-colors;
+  }
+  
+  .form-input {
+    @apply rounded-md border-gray-300 w-full py-2 px-3 focus:ring-primary focus:border-primary;
+  }
+  
+  .sidebar {
+    @apply fixed inset-y-0 left-0 w-64 bg-black text-white z-10;
+  }
+  
+  .sidebar-link {
+    @apply flex items-center text-gray-300 hover:text-white hover:bg-primary px-5 py-3 transition-colors;
+  }
+  
+  .sidebar-link.active {
+    @apply bg-primary text-white;
+  }
+  
+  .main-content {
+    @apply ml-64 p-5;
+  }
+}

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitus Finance - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-green: #2FCB6E;
+            --primary-green-dark: #27a359;
+            --primary-green-light: #7fe0a3;
+            --primary-green-subtle: rgba(47, 203, 110, 0.1);
+            --black: #000000;
+            --black-light: #333333;
+            --white: #ffffff;
+            --light-gray: #f7f9fc;
+            --mid-gray: #e5e7eb;
+            --text-gray: #6b7280;
+        }
+        
+        body {
+            background-color: var(--light-gray);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .login-container {
+            max-width: 450px;
+            margin: 100px auto;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h1 {
+            color: var(--black);
+            font-weight: 700;
+        }
+        .logo span {
+            color: var(--primary-green);
+        }
+        .logo p {
+            color: var(--text-gray);
+        }
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+        .btn-primary {
+            background-color: var(--primary-green);
+            border-color: var(--primary-green);
+            padding: 12px;
+            font-weight: 600;
+        }
+        .btn-primary:hover, .btn-primary:active, .btn-primary:focus {
+            background-color: var(--primary-green-dark) !important;
+            border-color: var(--primary-green-dark) !important;
+        }
+        .card-header {
+            background-color: white;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .register-link a {
+            color: var(--primary-green);
+            text-decoration: none;
+        }
+        .register-link a:hover {
+            text-decoration: underline;
+            color: var(--primary-green-dark);
+        }
+        .form-control:focus {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 0.25rem var(--primary-green-subtle);
+        }
+    </style>
+</head>
+<body>
+    <div class="container login-container">
+        <div class="logo">
+            <h1>Habitus <span>Finance</span></h1>
+            <p class="text-muted">Simulação e Análise Financeira</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h4 class="text-center mb-0 pt-2">Login</h4>
+            </div>
+            <div class="card-body p-4">
+                <form>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control form-control-lg" id="email" placeholder="seu@email.com" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Senha</label>
+                        <input type="password" class="form-control form-control-lg" id="password" placeholder="********" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="register-link">
+            <p>Não tem uma conta? <a href="#">Registre-se</a></p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
