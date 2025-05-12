@@ -308,3 +308,61 @@ Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre como contribuir com 
 ## Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## Script de Instalação Automatizada
+
+O projeto inclui um script de instalação automatizada que facilita a configuração do Habitus Forecast em um servidor Ubuntu.
+
+### Como usar o script de instalação
+
+1. Certifique-se de que você tenha acesso de superusuário (root) ao servidor Ubuntu.
+
+2. Faça download do projeto ou clone o repositório para o servidor:
+   ```bash
+   git clone https://github.com/seu-usuario/habitus-forecast.git
+   cd habitus-forecast
+   ```
+
+3. Torne o script executável (se ainda não estiver):
+   ```bash
+   chmod +x install.sh
+   ```
+
+4. Execute o script de instalação com permissões de superusuário:
+   ```bash
+   sudo ./install.sh
+   ```
+
+5. Siga as instruções na tela. O script solicitará as seguintes informações:
+   - Domínio para a aplicação (ex: exemplo.com)
+   - Diretório de instalação (padrão: /opt/habitus-forecast)
+   - Nome de usuário para MongoDB (padrão: admin)
+   - Senha para o MongoDB (será gerada aleatoriamente se não for fornecida)
+   - Chave secreta para JWT (será gerada aleatoriamente se não for fornecida)
+   - Fuso horário (padrão: America/Sao_Paulo)
+   - Se deseja configurar SSL com Let's Encrypt (s/n)
+
+6. Após confirmar as informações, o script irá:
+   - Atualizar o sistema
+   - Instalar Docker e Docker Compose
+   - Configurar o firewall
+   - Configurar o ambiente
+   - Configurar SSL (Let's Encrypt ou autoassinado)
+   - Construir e iniciar os containers
+
+7. Ao final da instalação, o script exibirá um resumo com as informações importantes e comandos úteis.
+
+### Requisitos
+
+- Ubuntu 20.04 LTS ou 22.04 LTS
+- Mínimo de 2GB de RAM
+- Mínimo de 30GB de espaço em disco
+- Um domínio apontando para o IP do servidor (necessário para SSL com Let's Encrypt)
+
+### Observações
+
+- O script deve ser executado como superusuário (sudo)
+- Para ambientes de produção, recomenda-se usar certificados SSL do Let's Encrypt
+- Todas as credenciais geradas serão exibidas ao final da instalação. Certifique-se de guardá-las em um local seguro.
+
+Para mais informações, consulte o guia de instalação completo em `docs/installation_guide.md`.

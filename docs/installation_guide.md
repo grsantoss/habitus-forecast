@@ -1,10 +1,10 @@
-# Guia de Instalação do Habitus Forecast
+# Guia de Instalação do Habitus Forecast com Docker
 
 ![Habitus Forecast Logo](../image/logo.png)
 
-Este guia fornece instruções passo a passo para instalar e configurar o Habitus Forecast em uma VPS Ubuntu. Foi desenvolvido para usuários com conhecimento básico em Linux, sendo detalhado o suficiente para que mesmo entusiastas iniciantes possam seguir sem problemas.
+Este guia fornece instruções passo a passo para instalar e configurar o Habitus Forecast em uma VPS Ubuntu utilizando Docker e docker-compose. Foi desenvolvido para usuários com conhecimento básico em Linux, sendo detalhado o suficiente para que mesmo entusiastas iniciantes possam seguir sem problemas.
 
-**Última atualização**: `Data: 01/10/2023`
+**Última atualização**: `Data: 01/11/2023`
 
 **Versão do Aplicativo**: `1.0.0`
 
@@ -12,28 +12,27 @@ Este guia fornece instruções passo a passo para instalar e configurar o Habitu
 
 - [Pré-requisitos e Requisitos Mínimos](#pré-requisitos-e-requisitos-mínimos)
 - [Preparação da VPS](#preparação-da-vps)
-- [Instalação de Dependências](#instalação-de-dependências)
-- [Configuração do Servidor Web](#configuração-do-servidor-web)
-- [Clonagem e Configuração do Repositório](#clonagem-e-configuração-do-repositório)
-- [Configuração do Banco de Dados](#configuração-do-banco-de-dados)
-- [Configuração do Aplicativo](#configuração-do-aplicativo)
-- [Configuração para Produção](#configuração-para-produção)
-- [Segurança Básica](#segurança-básica)
-- [Testando a Instalação](#testando-a-instalação)
+- [Instalação do Docker e Docker Compose](#instalação-do-docker-e-docker-compose)
+- [Obtenção do Código da Aplicação](#obtenção-do-código-da-aplicação)
+- [Configuração do Ambiente](#configuração-do-ambiente)
+- [Construção e Inicialização dos Containers](#construção-e-inicialização-dos-containers)
+- [Configuração do Servidor Web e SSL](#configuração-do-servidor-web-e-ssl)
+- [Verificação e Teste da Instalação](#verificação-e-teste-da-instalação)
 - [Manutenção Básica](#manutenção-básica)
 - [Solução de Problemas Comuns](#solução-de-problemas-comuns)
+- [Segurança Básica](#segurança-básica)
 
 ## Pré-requisitos e Requisitos Mínimos
 
 ### Requisitos de Hardware
 
-Para um ambiente de produção com desempenho adequado, recomendamos:
+Para um ambiente de produção com desempenho adequado usando Docker, recomendamos:
 
 | Recurso | Mínimo Recomendado | Ideal para Produção |
 |---------|--------------------|--------------------|
 | CPU     | 2 núcleos          | 4 núcleos          |
 | RAM     | 4 GB               | 8 GB               |
-| Disco   | 25 GB SSD          | 50 GB SSD          |
+| Disco   | 30 GB SSD          | 60 GB SSD          |
 | Rede    | 1 Gbps             | 1 Gbps             |
 
 ### Sistema Operacional
@@ -88,313 +87,143 @@ sudo timedatectl set-timezone America/Sao_Paulo
 date
 ```
 
-## Instalação de Dependências
+## Instalação do Docker e Docker Compose
 
-### 1. Python e Ferramentas de Desenvolvimento
+### 1. Instalação do Docker
 
-O Habitus Forecast utiliza Python 3.11, que precisa ser instalado:
+O Docker é a plataforma de containerização que usaremos para executar o Habitus Forecast:
 
 ```bash
-# Adiciona o repositório para versões mais recentes do Python
-sudo add-apt-repository ppa:deadsnakes/ppa -y
+# Remove versões antigas do Docker (caso existam)
+sudo apt remove docker docker-engine docker.io containerd runc
+
+# Instala os pacotes necessários
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Adiciona a chave GPG oficial do Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Adiciona o repositório do Docker às fontes do APT
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Atualiza o índice de pacotes
 sudo apt update
 
-# Instala o Python 3.11 e ferramentas relacionadas
-sudo apt install -y python3.11 python3.11-venv python3.11-dev python3-pip
+# Instala a versão mais recente do Docker Engine e do containerd
+sudo apt install -y docker-ce docker-ce-cli containerd.io
+
+# Inicia e habilita o Docker para iniciar na inicialização do sistema
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Verifica se o Docker foi instalado corretamente
+sudo docker run hello-world
+```
+
+### 2. Configuração de Permissões do Docker
+
+Para evitar a necessidade de usar `sudo` com comandos Docker, adicione seu usuário ao grupo `docker`:
+
+```bash
+# Adiciona o usuário atual ao grupo docker
+sudo usermod -aG docker $USER
+
+# Aplica as alterações de grupo
+newgrp docker
+
+# Verifica se você pode executar comandos Docker sem sudo
+docker run hello-world
+```
+
+### 3. Instalação do Docker Compose
+
+O Docker Compose é usado para definir e executar aplicativos Docker multi-container:
+
+```bash
+# Baixa a versão mais recente do Docker Compose
+COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
+sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+# Aplica permissões de execução
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Cria um link simbólico (opcional)
+sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
 # Verifica a instalação
-python3.11 --version
+docker-compose --version
 ```
 
-### 2. MongoDB
+## Obtenção do Código da Aplicação
 
-O sistema usa MongoDB como banco de dados. Vamos instalá-lo seguindo a documentação oficial:
+### 1. Clonagem do Repositório
+
+Baixe o código-fonte do Habitus Forecast do repositório Git:
 
 ```bash
-# Importa a chave pública do MongoDB
-curl -fsSL https://pgp.mongodb.com/server-6.0.asc | \
-   sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg \
-   --dearmor
+# Navegue para o diretório onde deseja armazenar o projeto
+cd /opt
 
-# Adiciona o repositório do MongoDB
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/6.0 multiverse" | \
-   sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+# Clone o repositório (substitua pelo URL correto do seu repositório)
+sudo git clone https://github.com/seu-usuario/habitus-forecast.git
 
-# Atualiza a lista de pacotes
-sudo apt update
-
-# Instala o MongoDB
-sudo apt install -y mongodb-org
-
-# Inicia o serviço MongoDB e habilita para iniciar automaticamente
-sudo systemctl start mongod
-sudo systemctl enable mongod
-
-# Verifica se o MongoDB está em execução
-sudo systemctl status mongod
-```
-
-### 3. Node.js e npm (para o Frontend)
-
-O frontend do Habitus Forecast usa React, portanto, precisamos instalar o Node.js:
-
-```bash
-# Adiciona o repositório Node.js
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-
-# Instala o Node.js
-sudo apt install -y nodejs
-
-# Verifica a instalação
-node --version
-npm --version
-```
-
-## Configuração do Servidor Web
-
-Utilizaremos o Nginx como servidor web e proxy reverso para o aplicativo.
-
-### 1. Instalação do Nginx
-
-```bash
-# Instala o Nginx
-sudo apt install -y nginx
-
-# Inicia o serviço e habilita para iniciar automaticamente
-sudo systemctl start nginx
-sudo systemctl enable nginx
-
-# Verifica se o Nginx está em execução
-sudo systemctl status nginx
-```
-
-### 2. Configuração do Firewall
-
-Configuramos o firewall para permitir o tráfego HTTP, HTTPS e SSH:
-
-```bash
-# Habilita o UFW (Uncomplicated Firewall)
-sudo ufw enable
-
-# Permite o tráfego SSH
-sudo ufw allow 22/tcp
-
-# Permite o tráfego HTTP e HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# Verifica o status do firewall
-sudo ufw status
-```
-
-### 3. Configuração do Proxy Reverso
-
-Crie um arquivo de configuração para o Habitus Forecast no Nginx:
-
-```bash
-sudo nano /etc/nginx/sites-available/habitus-forecast
-```
-
-Adicione a seguinte configuração:
-
-```nginx
-server {
-    listen 80;
-    server_name seu-dominio-ou-ip;
-
-    # Redireciona HTTP para HTTPS
-    # Descomente após configurar SSL
-    # return 301 https://$host$request_uri;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api/ {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Configuração para servir arquivos estáticos
-    location /static/ {
-        alias /home/usuario/habitus-forecast/client/build/static/;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000";
-    }
-}
-```
-
-Substitua `seu-dominio-ou-ip` pelo seu domínio ou endereço IP.
-
-Ative a configuração criando um link simbólico:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/habitus-forecast /etc/nginx/sites-enabled/
-sudo nginx -t  # Verifica se a configuração está correta
-sudo systemctl reload nginx  # Recarrega o Nginx com a nova configuração
-```
-
-## Clonagem e Configuração do Repositório
-
-### 1. Criação de um Usuário para o Aplicativo
-
-É uma boa prática criar um usuário específico para executar o aplicativo:
-
-```bash
-# Cria o usuário 'habitus' sem senha (só podemos acessá-lo via sudo)
-sudo useradd -m -s /bin/bash habitus
-
-# Adiciona o usuário ao grupo sudo (opcional)
-sudo usermod -aG sudo habitus
-```
-
-### 2. Clonagem do Repositório
-
-```bash
-# Muda para o diretório home do usuário habitus
-sudo su - habitus
-
-# Clona o repositório
-git clone https://github.com/seu-usuario/habitus-forecast.git
+# Defina as permissões corretas
+sudo chown -R $USER:$USER /opt/habitus-forecast
 cd habitus-forecast
-
-# Configura o Git para não solicitar credenciais (opcional)
-git config --global credential.helper store
 ```
 
-### 3. Criação do Ambiente Virtual Python
+### 2. Verificação da Estrutura do Projeto
+
+Verifique se o repositório foi clonado corretamente e se todos os arquivos necessários estão presentes:
 
 ```bash
-# Cria um ambiente virtual
-python3.11 -m venv venv
+# Lista os arquivos no diretório raiz do projeto
+ls -la
 
-# Ativa o ambiente virtual
-source venv/bin/activate
-
-# Instala as dependências do Python
-pip install --upgrade pip
-pip install -r requirements.txt
+# Verifica se os arquivos Docker essenciais existem
+ls -la Dockerfile docker-compose*.yml
 ```
 
-### 4. Configuração do Frontend
+Você deve ver a seguinte estrutura básica:
+- `Dockerfile`: Define como construir a imagem Docker da API
+- `docker-compose.yml`: Configuração Docker Compose para desenvolvimento
+- `docker-compose.prod.yml`: Configuração Docker Compose para produção
+- `app/`: Diretório contendo o código da API Python
+- `client/`: Diretório contendo o código do frontend React
+- `nginx/`: Configurações do servidor Nginx
+- `scripts/`: Scripts de utilidade, como backup
+
+## Configuração do Ambiente
+
+### 1. Criação do Arquivo .env para Produção
+
+Crie um arquivo `.env.prod` para configurar as variáveis de ambiente necessárias:
 
 ```bash
-# Navega para o diretório do cliente
-cd client
+# Navegue para o diretório do projeto
+cd /opt/habitus-forecast
 
-# Instala as dependências do Node.js
-npm install
+# Crie o arquivo .env.prod
+touch .env.prod
 
-# Constrói o frontend para produção
-npm run build
-
-# Retorna ao diretório principal
-cd ..
-```
-
-## Configuração do Banco de Dados
-
-### 1. Criação de Usuário e Banco no MongoDB
-
-Vamos criar um usuário dedicado para o Habitus Forecast no MongoDB:
-
-```bash
-# Inicia o shell do MongoDB
-mongosh
-
-# Cria um usuário administrador (se ainda não existir)
-use admin
-db.createUser({
-  user: "mongoAdmin",
-  pwd: "senha_admin_segura",
-  roles: [ { role: "userAdminAnyDatabase", db: "admin" } ]
-})
-
-# Cria o banco de dados e um usuário para o aplicativo
-use habitus-prod
-db.createUser({
-  user: "habitus_user",
-  pwd: "senha_segura_app",
-  roles: [ { role: "readWrite", db: "habitus-prod" } ]
-})
-
-# Sai do shell do MongoDB
-exit
-```
-
-> **Importante**: Substitua `senha_admin_segura` e `senha_segura_app` por senhas fortes e únicas.
-
-### 2. Habilitação da Autenticação no MongoDB
-
-Edite o arquivo de configuração do MongoDB:
-
-```bash
-sudo nano /etc/mongod.conf
-```
-
-Adicione ou modifique a seção de segurança:
-
-```yaml
-security:
-  authorization: enabled
-```
-
-Reinicie o MongoDB para aplicar as alterações:
-
-```bash
-sudo systemctl restart mongod
-```
-
-### 3. Importação de Dados Iniciais (Opcional)
-
-Se você tiver um dump de dados inicial para importar:
-
-```bash
-# Navega para o diretório do projeto
-cd ~/habitus-forecast
-
-# Restaura o dump do MongoDB
-mongorestore --uri="mongodb://habitus_user:senha_segura_app@localhost:27017/habitus-prod" --db=habitus-prod caminho/para/dump
-```
-
-## Configuração do Aplicativo
-
-### 1. Criação do Arquivo de Ambiente (.env)
-
-Crie um arquivo `.env` na raiz do projeto:
-
-```bash
-# Navega para o diretório do projeto
-cd ~/habitus-forecast
-
-# Cria o arquivo .env
+# Abra o arquivo para edição
 nano .env.prod
 ```
 
-Adicione as seguintes variáveis de ambiente:
+Adicione as seguintes variáveis ao arquivo `.env.prod`:
 
-```
+```env
 # Configurações gerais
-DEBUG=False
 ENVIRONMENT=production
+DEBUG=False
 API_PREFIX=/api/v1
 PORT=8000
 WORKERS=4
 
-# URL do MongoDB
-MONGODB_URI=mongodb://habitus_user:senha_segura_app@localhost:27017/habitus-prod
+# Configurações do MongoDB
+MONGO_INITDB_ROOT_USERNAME=admin
+MONGO_INITDB_ROOT_PASSWORD=sua_senha_segura_aqui
 MONGODB_DB=habitus-prod
-MAX_CONNECTIONS_COUNT=10
-MIN_CONNECTIONS_COUNT=1
 
 # Configuração de segurança
 SECRET_KEY=sua_chave_secreta_super_segura_com_pelo_menos_32_caracteres
@@ -408,253 +237,206 @@ CORS_ORIGINS=http://localhost,http://localhost:3000,https://seu-dominio.com
 # Configurações do sistema
 UPLOAD_FOLDER=./uploads
 MAX_UPLOAD_SIZE=10485760
+
+# Configurações de domínio
+DOMAIN=seu-dominio.com
 ```
 
-> **Importante**: Substitua `sua_chave_secreta_super_segura_com_pelo_menos_32_caracteres` por uma string aleatória segura. Você pode gerar uma com o comando:
+> **IMPORTANTE**: Substitua `sua_senha_segura_aqui`, `sua_chave_secreta_super_segura_com_pelo_menos_32_caracteres` e `seu-dominio.com` por valores reais. Para gerar uma chave secreta segura, você pode usar:
 > ```bash
 > openssl rand -hex 32
 > ```
 
-### 2. Teste Inicial do Aplicativo
+### 2. Geração de Certificado SSL Temporário (Opcional)
 
-Vamos testar o aplicativo para garantir que tudo está funcionando:
-
-```bash
-# Certifique-se de que o ambiente virtual está ativado
-source venv/bin/activate
-
-# Execute o aplicativo
-cd ~/habitus-forecast
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env.prod
-```
-
-Verifique se o aplicativo está em execução acessando `http://seu-ip:8000` em um navegador. Você deve ver a mensagem de boas-vindas da API.
-
-Pressione `Ctrl+C` para parar o aplicativo após o teste.
-
-## Configuração para Produção
-
-### 1. Configuração do Gunicorn/Uvicorn
-
-Para produção, usaremos Gunicorn com trabalhadores Uvicorn para executar o aplicativo. Crie um script para iniciar o servidor:
+Se você ainda não tem um certificado SSL, pode criar um certificado autoassinado temporário:
 
 ```bash
-# Crie um arquivo de script de inicialização
-nano ~/habitus-forecast/start_server.sh
+# Crie um diretório para armazenar certificados SSL
+mkdir -p /opt/habitus-forecast/ssl
+
+# Gere um certificado SSL autoassinado
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /opt/habitus-forecast/ssl/privkey.pem \
+  -out /opt/habitus-forecast/ssl/fullchain.pem \
+  -subj "/C=BR/ST=Estado/L=Cidade/O=Organização/CN=seu-dominio.com"
+  
+# Defina as permissões corretas
+sudo chown -R $USER:$USER /opt/habitus-forecast/ssl
 ```
 
-Adicione o seguinte conteúdo:
+> **Nota**: Este certificado autoassinado é apenas para teste. Para produção, você deve usar um certificado válido, como os fornecidos pelo Let's Encrypt (instruções mais adiante).
+
+## Construção e Inicialização dos Containers
+
+### 1. Construção das Imagens Docker
+
+Construa as imagens Docker para a API e o frontend:
 
 ```bash
-#!/bin/bash
-cd ~/habitus-forecast
-source venv/bin/activate
-gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --env-file .env.prod --access-logfile logs/access.log --error-logfile logs/error.log
+# Navegue para o diretório do projeto
+cd /opt/habitus-forecast
+
+# Construa as imagens usando docker-compose
+sudo docker-compose -f docker-compose.prod.yml build
 ```
 
-Torne o script executável:
+Este processo pode levar alguns minutos, pois ele baixa todas as dependências necessárias e compila as imagens.
+
+### 2. Inicialização dos Containers
+
+Inicie os containers usando o Docker Compose:
 
 ```bash
-chmod +x ~/habitus-forecast/start_server.sh
+# Inicie os containers em modo detached (background)
+sudo docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### 2. Configuração do Serviço Systemd
+O Docker Compose irá iniciar todos os serviços definidos no arquivo `docker-compose.prod.yml`:
+- API (Python/FastAPI)
+- Frontend (React/Nginx)
+- MongoDB
+- Serviço de backup
 
-Crie um arquivo de serviço systemd para gerenciar o aplicativo:
+### 3. Verificação dos Containers em Execução
+
+Verifique se todos os containers estão em execução:
 
 ```bash
-sudo nano /etc/systemd/system/habitus-api.service
+# Lista todos os containers em execução
+docker ps
+
+# Verifica os logs da API
+docker logs habitus-forecast-api-prod
+
+# Verifica os logs do frontend
+docker logs habitus-forecast-frontend-prod
+
+# Verifica os logs do MongoDB
+docker logs habitus-forecast-mongo-prod
 ```
 
-Adicione o seguinte conteúdo:
+## Configuração do Servidor Web e SSL
 
-```ini
-[Unit]
-Description=Habitus Forecast API
-After=network.target mongodb.service
+### 1. Configuração do Let's Encrypt com Certbot
 
-[Service]
-User=habitus
-Group=habitus
-WorkingDirectory=/home/habitus/habitus-forecast
-ExecStart=/home/habitus/habitus-forecast/start_server.sh
-Restart=always
-RestartSec=5
-StartLimitIntervalSec=0
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=habitus-api
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Ative e inicie o serviço:
+Para obter um certificado SSL válido para seu domínio, você pode usar o Let's Encrypt com o Certbot:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable habitus-api
-sudo systemctl start habitus-api
+# Pare os containers temporariamente
+docker-compose -f docker-compose.prod.yml down
 
-# Verifique o status do serviço
-sudo systemctl status habitus-api
+# Instale o Certbot
+sudo apt install -y certbot
+
+# Obtenha um certificado SSL
+sudo certbot certonly --standalone -d seu-dominio.com -d www.seu-dominio.com
+
+# Copie os certificados para o diretório do projeto
+sudo cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/
+sudo cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/
+
+# Ajuste as permissões
+sudo chown -R $USER:$USER /opt/habitus-forecast/ssl
 ```
 
-### 3. Configuração do Frontend como Serviço (Opcional)
+> **Nota**: Substitua `seu-dominio.com` pelo seu nome de domínio real. Certifique-se de que seu domínio está configurado para apontar para o IP da sua VPS e que as portas 80 e 443 estão abertas.
 
-Se você não estiver usando o build estático servido pelo Nginx, crie um serviço para o frontend:
+### 2. Configuração do Nginx para HTTPS
+
+Edite o arquivo de configuração do Nginx para habilitar HTTPS:
 
 ```bash
-sudo nano /etc/systemd/system/habitus-frontend.service
+# Abra o arquivo de configuração do Nginx
+nano /opt/habitus-forecast/nginx/nginx.conf
 ```
 
-Adicione o seguinte conteúdo:
-
-```ini
-[Unit]
-Description=Habitus Forecast Frontend
-After=network.target
-
-[Service]
-User=habitus
-Group=habitus
-WorkingDirectory=/home/habitus/habitus-forecast/client
-ExecStart=/usr/bin/npm start
-Restart=always
-RestartSec=5
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=habitus-frontend
-Environment="PORT=3000"
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Ative e inicie o serviço:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable habitus-frontend
-sudo systemctl start habitus-frontend
-
-# Verifique o status do serviço
-sudo systemctl status habitus-frontend
-```
-
-## Segurança Básica
-
-### 1. Configuração de SSL/TLS com Let's Encrypt
-
-Proteja seu site com HTTPS utilizando certificados gratuitos do Let's Encrypt:
-
-```bash
-# Instala o Certbot
-sudo apt install -y certbot python3-certbot-nginx
-
-# Obtém certificados SSL e configura o Nginx
-sudo certbot --nginx -d seu-dominio.com -d www.seu-dominio.com
-
-# Responda às perguntas do assistente
-```
-
-O Certbot modificará automaticamente sua configuração do Nginx para usar HTTPS.
-
-### 2. Configuração de Segurança Adicional para o Nginx
-
-Edite a configuração do Nginx para adicionar cabeçalhos de segurança:
-
-```bash
-sudo nano /etc/nginx/sites-available/habitus-forecast
-```
-
-Adicione os seguintes cabeçalhos dentro do bloco `server`:
+Atualize a configuração para suportar HTTPS:
 
 ```nginx
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;" always;
+server {
+    listen 80;
+    listen [::]:80;
+    server_name seu-dominio.com www.seu-dominio.com;
+    
+    # Redireciona para HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name seu-dominio.com www.seu-dominio.com;
+    
+    # Configurações SSL
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    
+    # Adiciona HSTS
+    add_header Strict-Transport-Security "max-age=63072000" always;
+    
+    # Configurações de segurança
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.seu-dominio.com/api/v1";
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+
+    # Diretório raiz
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Rota para a API
+    location /api/ {
+        proxy_pass http://api:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_redirect off;
+    }
+
+    # Rota para o aplicativo React
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+    
+    # Configurações adicionais (como as existentes)
+    ...
+}
 ```
 
-Reinicie o Nginx:
+> **Nota**: Substitua `seu-dominio.com` pelo seu domínio real. Inclua quaisquer configurações adicionais específicas que você precise.
+
+### 3. Reinicialização dos Containers
+
+Após configurar o SSL, reinicie os containers para aplicar as alterações:
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
+# Reinicie todos os containers
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### 3. Configuração de Backup Automático
-
-Configure backups automáticos do banco de dados:
-
-```bash
-# Crie um diretório para os backups
-sudo mkdir -p /var/backups/mongodb
-sudo chown habitus:habitus /var/backups/mongodb
-
-# Crie um script de backup
-sudo nano /home/habitus/backup_mongodb.sh
-```
-
-Adicione o seguinte conteúdo:
-
-```bash
-#!/bin/bash
-DATE=$(date +"%Y-%m-%d_%H-%M-%S")
-BACKUP_DIR="/var/backups/mongodb"
-MONGODB_HOST="localhost"
-MONGODB_PORT="27017"
-MONGODB_USER="habitus_user"
-MONGODB_PASSWORD="senha_segura_app"
-MONGODB_DATABASE="habitus-prod"
-
-# Cria backup
-mongodump --host $MONGODB_HOST --port $MONGODB_PORT --username $MONGODB_USER --password $MONGODB_PASSWORD --db $MONGODB_DATABASE --out $BACKUP_DIR/$DATE
-
-# Remove backups com mais de 30 dias
-find $BACKUP_DIR -type d -mtime +30 -exec rm -rf {} \;
-```
-
-Torne o script executável:
-
-```bash
-sudo chmod +x /home/habitus/backup_mongodb.sh
-```
-
-Configure o cron para executar o backup diariamente:
-
-```bash
-sudo crontab -e
-```
-
-Adicione a seguinte linha:
-
-```
-0 2 * * * /home/habitus/backup_mongodb.sh >> /var/log/mongodb_backup.log 2>&1
-```
-
-Isso executará o backup todos os dias às 2h da manhã.
-
-## Testando a Instalação
+## Verificação e Teste da Instalação
 
 ### 1. Verificação dos Serviços
 
 Verifique se todos os serviços estão em execução:
 
 ```bash
-# Verifica o status do MongoDB
-sudo systemctl status mongod
+# Verifica o status de todos os containers
+docker-compose -f docker-compose.prod.yml ps
 
-# Verifica o status do Nginx
-sudo systemctl status nginx
-
-# Verifica o status da API
-sudo systemctl status habitus-api
-
-# Verifica o status do frontend (se configurado como serviço)
-sudo systemctl status habitus-frontend
+# Verifica a saúde dos containers (se algum estiver com problemas)
+docker ps --format "{{.Names}}: {{.Status}}"
 ```
 
 ### 2. Teste de Acesso à API
@@ -663,191 +445,323 @@ Verifique se a API está respondendo:
 
 ```bash
 # Teste usando curl
-curl http://localhost:8000/api/v1/
+curl -k https://seu-dominio.com/api/v1/
 
-# Ou, se tiver configurado SSL:
-curl https://seu-dominio.com/api/v1/
+# Para testar o endpoint de saúde
+curl -k https://seu-dominio.com/api/v1/health
 ```
 
 Você deve receber uma resposta JSON indicando que a API está funcionando.
 
 ### 3. Teste do Frontend
 
-Acesse o frontend em um navegador:
+Acesse o frontend em um navegador web:
 
 ```
-http://seu-dominio.com
+https://seu-dominio.com
 ```
 
 Você deve ver a página de login do Habitus Forecast.
 
-## Manutenção Básica
+### 4. Verificação dos Logs
 
-### 1. Atualizações do Sistema
-
-Mantenha seu sistema atualizado:
+Verifique os logs para identificar possíveis problemas:
 
 ```bash
-# Atualiza os pacotes do sistema
-sudo apt update && sudo apt upgrade -y
-
-# Limpa pacotes desnecessários
-sudo apt autoremove -y
-```
-
-### 2. Atualizações do Aplicativo
-
-Para atualizar o Habitus Forecast:
-
-```bash
-# Muda para o usuário do aplicativo
-sudo su - habitus
-
-# Navega para o diretório do projeto
-cd ~/habitus-forecast
-
-# Atualiza o código do repositório
-git pull
-
-# Ativa o ambiente virtual
-source venv/bin/activate
-
-# Atualiza as dependências do Python
-pip install -r requirements.txt
-
-# Atualiza o frontend
-cd client
-npm install
-npm run build
-cd ..
-
-# Reinicia os serviços
-exit
-sudo systemctl restart habitus-api
-sudo systemctl restart habitus-frontend  # Se configurado como serviço
-```
-
-### 3. Monitoramento de Logs
-
-Verifique os logs para identificar problemas:
-
-```bash
-# Logs do aplicativo
-sudo journalctl -u habitus-api -f
+# Logs da API
+docker logs habitus-forecast-api-prod
 
 # Logs do frontend
-sudo journalctl -u habitus-frontend -f
-
-# Logs do Nginx
-sudo tail -f /var/log/nginx/access.log
-sudo tail -f /var/log/nginx/error.log
+docker logs habitus-forecast-frontend-prod
 
 # Logs do MongoDB
-sudo tail -f /var/log/mongodb/mongod.log
+docker logs habitus-forecast-mongo-prod
+```
+
+## Manutenção Básica
+
+### 1. Atualização da Aplicação
+
+Para atualizar a aplicação quando novas versões forem lançadas:
+
+```bash
+# Navegue para o diretório do projeto
+cd /opt/habitus-forecast
+
+# Busque as alterações mais recentes do repositório
+git pull
+
+# Reconstrua as imagens
+docker-compose -f docker-compose.prod.yml build
+
+# Reinicie os containers
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### 2. Backup dos Dados
+
+O serviço de backup está configurado para executar automaticamente, mas você também pode fazer backups manuais:
+
+```bash
+# Executar backup manual
+docker exec habitus-forecast-backup /usr/local/bin/backup.sh
+
+# Verificar backups existentes
+ls -la /opt/habitus-forecast/backups
+```
+
+Para restaurar um backup:
+
+```bash
+# Navegue para o diretório de backups
+cd /opt/habitus-forecast/backups
+
+# Liste os backups disponíveis
+ls -la
+
+# Restaure um backup específico (substitua pelo nome do seu arquivo de backup)
+docker exec -it habitus-forecast-mongo-prod mongorestore --gzip --archive=/backups/seu-arquivo-de-backup.gz --username admin --password sua_senha_admin --authenticationDatabase admin
+```
+
+### 3. Reinicialização dos Serviços
+
+Se precisar reiniciar serviços específicos:
+
+```bash
+# Reiniciar apenas a API
+docker restart habitus-forecast-api-prod
+
+# Reiniciar apenas o frontend
+docker restart habitus-forecast-frontend-prod
+
+# Reiniciar apenas o MongoDB
+docker restart habitus-forecast-mongo-prod
+
+# Reiniciar todos os serviços
+docker-compose -f docker-compose.prod.yml restart
+```
+
+### 4. Visualização de Logs
+
+Para acompanhar os logs em tempo real:
+
+```bash
+# Logs da API
+docker logs -f habitus-forecast-api-prod
+
+# Logs do frontend
+docker logs -f habitus-forecast-frontend-prod
+
+# Logs do MongoDB
+docker logs -f habitus-forecast-mongo-prod
+
+# Todos os logs do docker-compose
+docker-compose -f docker-compose.prod.yml logs -f
 ```
 
 ## Solução de Problemas Comuns
 
-### Problema: A API não inicia
+### Problema: Containers não iniciam
 
 **Verificações**:
-1. Verifique se o MongoDB está em execução:
+1. Verifique os logs do container:
    ```bash
-   sudo systemctl status mongod
+   docker logs nome-do-container
    ```
 
-2. Verifique os logs do serviço:
+2. Verifique se o arquivo `.env.prod` existe e contém todas as variáveis necessárias:
    ```bash
-   sudo journalctl -u habitus-api -f
+   cat /opt/habitus-forecast/.env.prod
    ```
 
-3. Teste manualmente o aplicativo:
+3. Verifique se há erros na configuração do Docker Compose:
    ```bash
-   sudo su - habitus
-   cd ~/habitus-forecast
-   source venv/bin/activate
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env.prod
+   docker-compose -f docker-compose.prod.yml config
    ```
 
 **Soluções possíveis**:
-- Verifique as credenciais do MongoDB no arquivo `.env.prod`
-- Verifique permissões de arquivos e diretórios
-- Certifique-se de que todas as dependências foram instaladas
+- Verifique se todas as variáveis de ambiente estão definidas corretamente
+- Verifique se as portas necessárias não estão sendo usadas por outros serviços
+- Certifique-se de que o Docker tem permissões para acessar os volumes mapeados
 
-### Problema: A Interface Web Não Carrega
+### Problema: Não é possível acessar a aplicação via navegador
 
 **Verificações**:
-1. Verifique se o Nginx está em execução:
+1. Verifique se os containers estão em execução:
    ```bash
-   sudo systemctl status nginx
+   docker ps
    ```
 
-2. Teste se o frontend está acessível diretamente:
+2. Teste a conexão localmente:
    ```bash
-   curl http://localhost:3000
+   curl -k https://localhost
    ```
 
-3. Verifique os logs do Nginx:
+3. Verifique a configuração do Nginx:
    ```bash
-   sudo tail -f /var/log/nginx/error.log
+   docker exec habitus-forecast-frontend-prod nginx -t
    ```
 
 **Soluções possíveis**:
-- Verifique a configuração do Nginx
-- Certifique-se de que o build do frontend foi gerado corretamente
-- Verifique permissões do diretório `/home/habitus/habitus-forecast/client/build`
+- Verifique se as portas 80 e 443 estão abertas no firewall
+- Certifique-se de que o domínio está configurado para apontar para o IP correto
+- Verifique se o certificado SSL está válido e configurado corretamente
 
-### Problema: Erros de Permissão
+### Problema: Erros de Conexão com o MongoDB
 
 **Verificações**:
-1. Verifique as permissões dos diretórios:
+1. Verifique os logs do MongoDB:
    ```bash
-   ls -la /home/habitus/habitus-forecast
+   docker logs habitus-forecast-mongo-prod
    ```
 
-2. Verifique o proprietário dos arquivos:
+2. Verifique se o MongoDB está acessível pela API:
    ```bash
-   sudo stat -c "%U:%G" /home/habitus/habitus-forecast
+   docker exec habitus-forecast-api-prod curl -s mongo:27017
    ```
 
 **Soluções possíveis**:
-- Ajuste as permissões:
-   ```bash
-   sudo chown -R habitus:habitus /home/habitus/habitus-forecast
-   sudo chmod -R 755 /home/habitus/habitus-forecast
-   ```
+- Verifique se as credenciais do MongoDB estão corretas no arquivo `.env.prod`
+- Certifique-se de que o volume do MongoDB está configurado corretamente
+- Reinicie o container do MongoDB para resolver problemas de conexão
 
-### Problema: MongoDB Não Conecta
+### Problema: Problemas de Desempenho
 
 **Verificações**:
-1. Verifique se o MongoDB está em execução:
+1. Verifique a utilização de recursos:
    ```bash
-   sudo systemctl status mongod
+   docker stats
    ```
 
-2. Teste a conexão manualmente:
+2. Verifique a utilização do disco:
    ```bash
-   mongosh --host localhost --port 27017 -u habitus_user -p senha_segura_app --authenticationDatabase habitus-prod
+   df -h
    ```
 
 **Soluções possíveis**:
-- Verifique a configuração do MongoDB (`/etc/mongod.conf`)
-- Verifique as credenciais no arquivo `.env.prod`
-- Verifique o status do serviço MongoDB
+- Aumente os limites de recursos para os containers no arquivo `docker-compose.prod.yml`
+- Verifique se há espaço suficiente em disco
+- Considere escalar horizontalmente adicionando mais réplicas da API
+
+## Segurança Básica
+
+### 1. Configuração do Firewall (UFW)
+
+Configure o firewall para permitir apenas o tráfego necessário:
+
+```bash
+# Instale o UFW se ainda não estiver instalado
+sudo apt install -y ufw
+
+# Configure as regras padrão
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Permita SSH
+sudo ufw allow ssh
+
+# Permita HTTP e HTTPS
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Habilite o firewall
+sudo ufw enable
+
+# Verifique o status
+sudo ufw status
+```
+
+### 2. Boas Práticas de Segurança com Docker
+
+#### Limitar recursos dos containers
+
+Edite o arquivo `docker-compose.prod.yml` para limitar recursos:
+
+```yaml
+services:
+  api:
+    # ... outras configurações ...
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+```
+
+#### Usar imagens oficiais e manter atualizadas
+
+Sempre use imagens oficiais do Docker Hub e mantenha-as atualizadas:
+
+```bash
+# Puxe as imagens mais recentes
+docker-compose -f docker-compose.prod.yml pull
+
+# Reconstrua as imagens
+docker-compose -f docker-compose.prod.yml build --no-cache
+```
+
+#### Proteger os segredos
+
+Nunca armazene segredos diretamente no código ou em imagens Docker:
+
+```bash
+# Verifique as permissões do arquivo .env.prod
+sudo chmod 600 /opt/habitus-forecast/.env.prod
+sudo chown $USER:$USER /opt/habitus-forecast/.env.prod
+```
+
+### 3. Atualizações de Segurança Regulares
+
+Mantenha o sistema operacional e os containers atualizados:
+
+```bash
+# Atualize o sistema
+sudo apt update && sudo apt upgrade -y
+
+# Atualize as imagens Docker
+docker-compose -f docker-compose.prod.yml pull
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### 4. Renovação Automática do Certificado SSL
+
+Configure a renovação automática do certificado Let's Encrypt:
+
+```bash
+# Teste a renovação
+sudo certbot renew --dry-run
+
+# Crie um script para atualizar os certificados no diretório do projeto
+cat > /opt/habitus-forecast/scripts/renew-ssl.sh << 'EOF'
+#!/bin/bash
+certbot renew --quiet
+cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/
+cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/
+chown -R $(whoami):$(whoami) /opt/habitus-forecast/ssl
+docker restart habitus-forecast-frontend-prod
+EOF
+
+# Torne o script executável
+chmod +x /opt/habitus-forecast/scripts/renew-ssl.sh
+
+# Adicione ao crontab para execução automática (duas vezes por dia)
+(crontab -l 2>/dev/null; echo "0 0,12 * * * /opt/habitus-forecast/scripts/renew-ssl.sh") | crontab -
+```
 
 ## Conclusão
 
-Parabéns! Você instalou e configurou com sucesso o Habitus Forecast em sua VPS Ubuntu. Este guia cobriu todos os passos essenciais, desde a preparação do servidor até a configuração para produção.
+Parabéns! Você instalou e configurou com sucesso o Habitus Forecast usando Docker e docker-compose. Este guia cobriu todos os passos essenciais, desde a preparação do servidor até a configuração para produção e manutenção.
 
 Para obter suporte adicional, visite nossa documentação oficial ou entre em contato com nossa equipe de suporte.
 
 ---
 
 **Links Úteis**:
-- [Documentação Oficial do FastAPI](https://fastapi.tiangolo.com/)
-- [Documentação do MongoDB](https://docs.mongodb.com/)
+- [Documentação Oficial do Docker](https://docs.docker.com/)
+- [Documentação do Docker Compose](https://docs.docker.com/compose/)
 - [Documentação do Nginx](https://nginx.org/en/docs/)
 - [Let's Encrypt](https://letsencrypt.org/docs/)
+- [Documentação do MongoDB](https://docs.mongodb.com/)
 
 ---
 
