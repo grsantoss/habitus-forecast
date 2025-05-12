@@ -3,7 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -21,6 +21,14 @@ const Layout = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
+  // Determinar o título da página com base na rota atual
+  const getPageTitle = () => {
+    if (location.pathname === '/dashboard') return 'Dashboard';
+    if (location.pathname.startsWith('/dados-financeiros')) return 'Dados Financeiros';
+    if (location.pathname.startsWith('/cenarios')) return 'Cenários Financeiros';
+    return 'Habitus Forecast';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -32,17 +40,17 @@ const Layout = () => {
           <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard')}`}>
             <i className="bi bi-speedometer2 mr-3"></i> Dashboard
           </Link>
-          <Link to="/spreadsheets" className={`sidebar-link ${isActive('/spreadsheets')}`}>
+          <Link to="/dados-financeiros" className={`sidebar-link ${isActive('/dados-financeiros')}`}>
             <i className="bi bi-file-earmark-spreadsheet mr-3"></i> Dados Financeiros
           </Link>
-          <Link to="/scenarios" className={`sidebar-link ${isActive('/scenarios')}`}>
+          <Link to="/cenarios" className={`sidebar-link ${isActive('/cenarios')}`}>
             <i className="bi bi-graph-up-arrow mr-3"></i> Cenários
           </Link>
           <Link to="#" className={`sidebar-link`}>
             <i className="bi bi-file-earmark-pdf mr-3"></i> Relatórios
           </Link>
-          {user?.role === 'admin' && (
-            <Link to="/admin" className={`sidebar-link ${isActive('/admin')}`}>
+          {isAdmin() && (
+            <Link to="/admin" className={`sidebar-link`}>
               <i className="bi bi-gear mr-3"></i> Administração
             </Link>
           )}
@@ -60,9 +68,7 @@ const Layout = () => {
               >
                 <i className="bi bi-list"></i>
               </button>
-              <h2 className="text-lg font-semibold">{location.pathname === '/dashboard' ? 'Dashboard' : 
-                location.pathname.includes('/spreadsheets') ? 'Dados Financeiros' : 
-                location.pathname.includes('/scenarios') ? 'Cenários' : 'Habitus Forecast'}</h2>
+              <h2 className="text-lg font-semibold">{getPageTitle()}</h2>
             </div>
             <div className="flex items-center">
               <span className="mr-4 text-gray-600">Olá, {user?.name}</span>

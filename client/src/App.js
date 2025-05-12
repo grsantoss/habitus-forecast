@@ -12,7 +12,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 
-// Protected Pages
+// Protected Pages - Usuário Regular
 import Dashboard from './pages/Dashboard';
 import SpreadsheetUpload from './pages/SpreadsheetUpload';
 import SpreadsheetList from './pages/SpreadsheetList';
@@ -25,6 +25,9 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import SmtpConfig from './pages/admin/SmtpConfig';
 
+// Página de acesso negado
+import AccessDenied from './pages/AccessDenied';
+
 // Route Guards
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -35,13 +38,19 @@ const PrivateRoute = ({ children }) => {
 };
 
 const AdminRoute = ({ children }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
   
   if (loading) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   
-  return isAuthenticated && user?.role === 'admin' ? 
-    children : 
-    <Navigate to="/dashboard" />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+  
+  if (!isAdmin()) {
+    return <Navigate to="/acesso-negado" />;
+  }
+  
+  return children;
 };
 
 function App() {
@@ -52,6 +61,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/acesso-negado" element={<AccessDenied />} />
       
       {/* Protected User Routes */}
       <Route path="/" element={
@@ -61,11 +71,15 @@ function App() {
       }>
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="spreadsheets/upload" element={<SpreadsheetUpload />} />
-        <Route path="spreadsheets" element={<SpreadsheetList />} />
-        <Route path="scenarios/create/:spreadsheetId" element={<ScenarioCreate />} />
-        <Route path="scenarios/:id" element={<ScenarioDetail />} />
-        <Route path="scenarios" element={<ScenarioList />} />
+        <Route path="dados-financeiros">
+          <Route index element={<SpreadsheetList />} />
+          <Route path="upload" element={<SpreadsheetUpload />} />
+        </Route>
+        <Route path="cenarios">
+          <Route index element={<ScenarioList />} />
+          <Route path="criar/:spreadsheetId" element={<ScenarioCreate />} />
+          <Route path=":id" element={<ScenarioDetail />} />
+        </Route>
       </Route>
       
       {/* Admin Routes */}
@@ -75,8 +89,12 @@ function App() {
         </AdminRoute>
       }>
         <Route index element={<AdminDashboard />} />
-        <Route path="users" element={<UserManagement />} />
-        <Route path="smtp-config" element={<SmtpConfig />} />
+        <Route path="usuarios" element={<UserManagement />} />
+        <Route path="configuracoes">
+          <Route path="email" element={<SmtpConfig />} />
+        </Route>
+        <Route path="metricas" element={<AdminDashboard />} />
+        <Route path="logs" element={<AdminDashboard />} />
       </Route>
       
       {/* Fallback Route */}

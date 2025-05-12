@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Serviço de API FastAPI (Dev Mode)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: habitus-forecast-api-dev
+    container_name: habitus-forecast-api-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/habitus-dev
+      - ENVIRONMENT=development
+      - DEBUG=True
+      - RELOAD=True
+    volumes:
+      - .:/app  # Monta todo o código para hot-reload
+    depends_on:
+      - mongo
+    networks:
+      - habitus-network-dev
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Serviço de banco de dados MongoDB (Dev Mode)
+  mongo:
+    image: mongo:6
+    container_name: habitus-forecast-mongo-dev
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=dev
+      - MONGO_INITDB_ROOT_PASSWORD=dev_password
+      - MONGO_INITDB_DATABASE=habitus-dev
+    volumes:
+      - mongo-data-dev:/data/db
+      - ./mongo-init.dev.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "27018:27017"  # Porta diferente para não conflitar com outras instâncias
+    networks:
+      - habitus-network-dev
+    command: ["--auth", "--bind_ip_all"]
+
+  # Serviço de frontend React (Dev Mode)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.client.dev
+    image: habitus-forecast-frontend-dev
+    container_name: habitus-forecast-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app  # Monta o código do frontend para hot-reload
+    depends_on:
+      - api
+    networks:
+      - habitus-network-dev
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+    command: ["npm", "start"]
+
+volumes:
+  mongo-data-dev:
+    name: habitus-mongo-data-dev
+
+networks:
+  habitus-network-dev:
+    driver: bridge 

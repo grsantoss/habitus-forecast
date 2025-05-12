@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # Serviço de API FastAPI (Staging)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: habitus-forecast-api-staging
+    container_name: habitus-forecast-api-staging
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.staging
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/habitus-staging
+      - ENVIRONMENT=staging
+      - DEBUG=False
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - mongo
+    networks:
+      - habitus-network-staging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Serviço de banco de dados MongoDB (Staging)
+  mongo:
+    image: mongo:6
+    container_name: habitus-forecast-mongo-staging
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-staging_user}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-staging_password}
+      - MONGO_INITDB_DATABASE=habitus-staging
+    volumes:
+      - mongo-data-staging:/data/db
+      - ./mongo-init.staging.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - habitus-network-staging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    command: ["--auth", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.5"]
+
+  # Serviço de frontend React (Staging)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.client
+      args:
+        - REACT_APP_API_URL=https://api-staging.habitus-forecast.com/api/v1
+        - NODE_ENV=production
+    image: habitus-forecast-frontend-staging
+    container_name: habitus-forecast-frontend-staging
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - habitus-network-staging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+  mongo-data-staging:
+    name: habitus-mongo-data-staging
+
+networks:
+  habitus-network-staging:
+    driver: bridge 

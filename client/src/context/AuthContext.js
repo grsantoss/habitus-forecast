@@ -81,6 +81,23 @@ export const AuthProvider = ({ children }) => {
     toast.info('Logout realizado com sucesso!');
   };
 
+  // Verificar se o usuário é administrador
+  const isAdmin = () => {
+    return user?.role === 'admin';
+  };
+
+  // Verificar permissões específicas
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    
+    // Administradores têm todas as permissões
+    if (user.role === 'admin') return true;
+    
+    // Implementar lógica adicional de permissões aqui
+    // Por exemplo, verificar permissões específicas do usuário
+    return user.permissions?.includes(permission) || false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -90,7 +107,9 @@ export const AuthProvider = ({ children }) => {
         loading,
         register,
         login,
-        logout
+        logout,
+        isAdmin,
+        hasPermission
       }}
     >
       {children}

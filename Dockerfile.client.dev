@@ -1,0 +1,20 @@
+FROM node:18-alpine
+
+# Define variáveis de ambiente
+ENV NODE_ENV=development \
+    CHOKIDAR_USEPOLLING=true \
+    WDS_SOCKET_PORT=0
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Instala dependências do sistema e ferramentas de desenvolvimento
+RUN apk add --no-cache git curl vim bash
+
+# Os arquivos serão montados como volume no docker-compose.dev.yml
+
+# Expõe a porta da aplicação
+EXPOSE 3000
+
+# Comando para iniciar a aplicação em modo de desenvolvimento
+CMD ["sh", "-c", "if [ -f package.json ]; then npm install && npm start; else echo 'Waiting for volume mount...' && sleep infinity; fi"] 

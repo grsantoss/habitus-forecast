@@ -1,32 +1,78 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: habitus-mongodb
+  # Serviço de API FastAPI
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: habitus-forecast-api
+    container_name: habitus-forecast-api
+    restart: unless-stopped
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
+      - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=habitus
-      - MONGO_INITDB_ROOT_PASSWORD=habitus123
+      - MONGODB_URI=mongodb://mongo:27017/habitus
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    volumes:
+      - ./app:/app/app  # Para desenvolvimento, remover em produção
+    depends_on:
+      - mongo
     networks:
       - habitus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
-  redis:
-    image: redis:latest
-    container_name: habitus-redis
-    ports:
-      - "6379:6379"
+  # Serviço de banco de dados MongoDB
+  mongo:
+    image: mongo:6
+    container_name: habitus-forecast-mongo
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-password}
+      - MONGO_INITDB_DATABASE=habitus
     volumes:
-      - redis_data:/data
+      - mongo-data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - habitus-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["--auth", "--bind_ip_all", "--wiredTigerCacheSizeGB", "1"]
+
+  # Serviço de frontend React (opcional)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.client
+    image: habitus-forecast-frontend
+    container_name: habitus-forecast-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
     networks:
       - habitus-network
 
 volumes:
-  mongodb_data:
-  redis_data:
+  mongo-data:
+    name: habitus-mongo-data
 
 networks:
   habitus-network:

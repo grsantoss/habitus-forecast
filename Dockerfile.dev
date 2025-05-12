@@ -1,0 +1,41 @@
+FROM python:3.11-slim
+
+# Define variáveis de ambiente para Python
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBUG=True \
+    ENVIRONMENT=development \
+    RELOAD=True
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Instala dependências do sistema e ferramentas de desenvolvimento
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    gcc \
+    curl \
+    libssl-dev \
+    git \
+    vim \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copia os arquivos de dependências
+COPY requirements.txt requirements-dev.txt* ./
+
+# Instala dependências de desenvolvimento e produção
+RUN pip install --upgrade pip && \
+    if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; else pip install -r requirements.txt; fi && \
+    pip install pytest pytest-cov pytest-asyncio ipython
+
+# O código será montado como volume em /app no docker-compose.dev.yml
+# para permitir hot reload, então não precisamos copiar nada aqui
+
+# Expõe a porta da aplicação
+EXPOSE 8000
+
+# Comando para iniciar a aplicação com hot-reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 

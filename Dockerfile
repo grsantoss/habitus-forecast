@@ -1,33 +1,59 @@
-# Build do cliente
-FROM node:16-alpine as client-build
-WORKDIR /app/client
-COPY client/package*.json ./
-RUN npm install
-COPY client/ .
-RUN npm run build
+FROM python:3.11-slim as builder
 
-# Build do servidor
-FROM node:16-alpine as server-build
+# Define variáveis de ambiente para Python
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Define o diretório de trabalho
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
-COPY server/ ./server/
-COPY --from=client-build /app/client/build ./client/build
 
-# Imagem final
-FROM node:16-alpine
+# Instala dependências do sistema
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libssl-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copia os arquivos de dependências
+COPY requirements.txt .
+
+# Cria ambiente virtual e instala dependências
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Segunda etapa: imagem final
+FROM python:3.11-slim
+
+# Define o usuário não-root
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -s /bin/bash -m appuser
+
+# Define variáveis de ambiente
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PORT=8000
+
 WORKDIR /app
-COPY --from=server-build /app ./
 
-# Criar diretórios necessários
-RUN mkdir -p server/uploads logs
+# Copia o ambiente virtual da etapa anterior
+COPY --from=builder /opt/venv /opt/venv
 
-# Configurar permissões
-RUN chown -R node:node /app
-USER node
+# Copia o código da aplicação
+COPY --chown=appuser:appuser . .
 
-# Expor porta
-EXPOSE 5000
+# Altera para o usuário não-root
+USER appuser
 
-# Iniciar aplicação
-CMD ["node", "server/index.js"] 
+# Expõe a porta da aplicação
+EXPOSE 8000
+
+# Define healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+
+# Comando para iniciar a aplicação
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
