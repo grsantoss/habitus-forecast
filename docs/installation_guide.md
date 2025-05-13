@@ -1,768 +1,469 @@
-# Guia de Instalação do Habitus Forecast com Docker
+# Guia de Instalação Atualizado do Habitus Forecast com Docker
 
 ![Habitus Forecast Logo](../image/logo.png)
 
-Este guia fornece instruções passo a passo para instalar e configurar o Habitus Forecast em uma VPS Ubuntu utilizando Docker e docker-compose. Foi desenvolvido para usuários com conhecimento básico em Linux, sendo detalhado o suficiente para que mesmo entusiastas iniciantes possam seguir sem problemas.
+Este guia fornece instruções detalhadas para instalar e configurar o Habitus Forecast em uma VPS Ubuntu (20.04 LTS ou 22.04 LTS) utilizando Docker e Docker Compose. Ele aborda problemas comuns de implantação e oferece soluções para uma configuração robusta e segura.
 
-**Última atualização**: `Data: 01/11/2023`
+**Última atualização**: `Data da Atualização (ex: 15/07/2024)`
 
 **Versão do Aplicativo**: `1.0.0`
 
 ## Sumário
 
-- [Pré-requisitos e Requisitos Mínimos](#pré-requisitos-e-requisitos-mínimos)
+- [Pré-requisitos](#pré-requisitos)
 - [Preparação da VPS](#preparação-da-vps)
 - [Instalação do Docker e Docker Compose](#instalação-do-docker-e-docker-compose)
 - [Obtenção do Código da Aplicação](#obtenção-do-código-da-aplicação)
-- [Configuração do Ambiente](#configuração-do-ambiente)
-- [Construção e Inicialização dos Containers](#construção-e-inicialização-dos-containers)
-- [Configuração do Servidor Web e SSL](#configuração-do-servidor-web-e-ssl)
-- [Verificação e Teste da Instalação](#verificação-e-teste-da-instalação)
-- [Manutenção Básica](#manutenção-básica)
-- [Solução de Problemas Comuns](#solução-de-problemas-comuns)
-- [Segurança Básica](#segurança-básica)
+- [Configuração do Ambiente (.env.prod)](#configuração-do-ambiente-envprod)
+- **Etapa 1: Implantação do Backend (API) e Banco de Dados (MongoDB)**
+  - [Ajustes no Código da API (Pydantic e MongoDB)](#ajustes-no-código-da-api-pydantic-e-mongodb)
+  - [Construção e Inicialização (API e MongoDB)](#construção-e-inicialização-api-e-mongodb)
+  - [Verificação (API e MongoDB)](#verificação-api-e-mongodb)
+- **Etapa 2: Implantação do Frontend (React/Nginx)**
+  - [Configuração do Nginx](#configuração-do-nginx)
+  - [Geração de Certificado SSL (Let's Encrypt)](#geração-de-certificado-ssl-lets-encrypt)
+  - [Construção e Inicialização (Frontend)](#construção-e-inicialização-frontend)
+  - [Verificação Final](#verificação-final)
+- [Manutenção e Operações](#manutenção-e-operações)
+  - [Visualização de Logs](#visualização-de-logs)
+  - [Backup e Restauração do MongoDB](#backup-e-restauração-do-mongodb)
+  - [Atualização da Aplicação](#atualização-da-aplicação)
+  - [Verificação de Integridade dos Containers](#verificação-de-integridade-dos-containers)
+- [Solução de Problemas Comuns (Troubleshooting)](#solução-de-problemas-comuns-troubleshooting)
+- [Considerações de Segurança](#considerações-de-segurança)
 
-## Pré-requisitos e Requisitos Mínimos
+## Pré-requisitos
 
-### Requisitos de Hardware
-
-Para um ambiente de produção com desempenho adequado usando Docker, recomendamos:
-
-| Recurso | Mínimo Recomendado | Ideal para Produção |
-|---------|--------------------|--------------------|
-| CPU     | 2 núcleos          | 4 núcleos          |
-| RAM     | 4 GB               | 8 GB               |
-| Disco   | 30 GB SSD          | 60 GB SSD          |
-| Rede    | 1 Gbps             | 1 Gbps             |
-
-### Sistema Operacional
-
-Este guia foi testado com:
-- Ubuntu 20.04 LTS
-- Ubuntu 22.04 LTS
-
-> **Nota**: Embora o sistema possa funcionar em outras versões ou distribuições, recomendamos usar o Ubuntu LTS para melhor compatibilidade e suporte.
+- VPS com Ubuntu 20.04 LTS ou 22.04 LTS.
+- Requisitos de Hardware: Mínimo 2 CPU, 4GB RAM, 30GB SSD. Recomendado 4 CPU, 8GB RAM, 60GB SSD.
+- Acesso root ou um usuário com privilégios sudo.
+- Um nome de domínio apontando para o IP da sua VPS (para HTTPS).
+- Conhecimento básico de linha de comando Linux.
 
 ## Preparação da VPS
 
-### 1. Acesso via SSH
+1.  **Acesso via SSH:**
+    ```bash
+    ssh seu_usuario@seu_ip_da_vps
+    ```
 
-Primeiro, conecte-se à sua VPS usando SSH. Você precisará do endereço IP e das credenciais fornecidas pelo seu provedor de VPS.
+2.  **Atualização do Sistema:**
+    ```bash
+    sudo apt update && sudo apt upgrade -y
+    sudo apt install -y curl wget vim git software-properties-common apt-transport-https ca-certificates gnupg
+    ```
 
-```bash
-ssh usuario@seu-ip-da-vps
-```
-
-Substitua `usuario` e `seu-ip-da-vps` pelas suas informações reais.
-
-> **Dica de Segurança**: É recomendável configurar a autenticação por chave SSH em vez de senha. Seu provedor de VPS geralmente oferece esta opção durante a criação do servidor.
-
-### 2. Atualização Inicial do Sistema
-
-Após conectar-se, atualize o sistema operacional:
-
-```bash
-# Atualiza a lista de pacotes
-sudo apt update
-
-# Instala as atualizações disponíveis
-sudo apt upgrade -y
-
-# Instala alguns pacotes essenciais
-sudo apt install -y curl wget vim git software-properties-common apt-transport-https ca-certificates gnupg
-```
-
-### 3. Configuração do Fuso Horário
-
-Configure o fuso horário correto para evitar problemas com logs e agendamento:
-
-```bash
-# Lista os fusos horários disponíveis
-timedatectl list-timezones | grep America/Sao_Paulo
-
-# Define o fuso horário (exemplo: Brasil/São Paulo)
-sudo timedatectl set-timezone America/Sao_Paulo
-
-# Verifica se a configuração foi aplicada
-date
-```
+3.  **Configuração do Fuso Horário (Exemplo: São Paulo):**
+    ```bash
+    sudo timedatectl set-timezone America/Sao_Paulo
+    date
+    ```
 
 ## Instalação do Docker e Docker Compose
 
-### 1. Instalação do Docker
+1.  **Instalação do Docker Engine:**
+    ```bash
+    sudo apt remove docker docker-engine docker.io containerd runc # Remove versões antigas
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    ```
 
-O Docker é a plataforma de containerização que usaremos para executar o Habitus Forecast:
+2.  **Permissões do Docker (Opcional, para evitar `sudo`):**
+    ```bash
+    sudo usermod -aG docker $USER
+    newgrp docker # Aplica as alterações de grupo, pode ser necessário sair e logar novamente
+    docker run hello-world # Teste
+    ```
+    > **Nota:** Se `newgrp docker` não funcionar ou se você preferir, continue usando `sudo docker ...` para os comandos Docker.
 
-```bash
-# Remove versões antigas do Docker (caso existam)
-sudo apt remove docker docker-engine docker.io containerd runc
-
-# Instala os pacotes necessários
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-
-# Adiciona a chave GPG oficial do Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Adiciona o repositório do Docker às fontes do APT
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Atualiza o índice de pacotes
-sudo apt update
-
-# Instala a versão mais recente do Docker Engine e do containerd
-sudo apt install -y docker-ce docker-ce-cli containerd.io
-
-# Inicia e habilita o Docker para iniciar na inicialização do sistema
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# Verifica se o Docker foi instalado corretamente
-sudo docker run hello-world
-```
-
-### 2. Configuração de Permissões do Docker
-
-Para evitar a necessidade de usar `sudo` com comandos Docker, adicione seu usuário ao grupo `docker`:
-
-```bash
-# Adiciona o usuário atual ao grupo docker
-sudo usermod -aG docker $USER
-
-# Aplica as alterações de grupo
-newgrp docker
-
-# Verifica se você pode executar comandos Docker sem sudo
-docker run hello-world
-```
-
-### 3. Instalação do Docker Compose
-
-O Docker Compose é usado para definir e executar aplicativos Docker multi-container:
-
-```bash
-# Baixa a versão mais recente do Docker Compose
-COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
-sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-# Aplica permissões de execução
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Cria um link simbólico (opcional)
-sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-
-# Verifica a instalação
-docker-compose --version
-```
+3.  **Verificar Docker Compose (plugin):**
+    O Docker Compose V2 agora é um plugin do Docker CLI.
+    ```bash
+    docker compose version
+    ```
+    Se você precisar do `docker-compose` standalone (V1, legado), as instruções de instalação são diferentes. Este guia assume o uso do plugin `docker compose`.
 
 ## Obtenção do Código da Aplicação
 
-### 1. Clonagem do Repositório
+1.  **Clonagem do Repositório:**
+    ```bash
+    cd /opt # Ou outro diretório de sua preferência
+    sudo git clone https://github.com/seu-usuario/habitus-forecast.git # Substitua pelo URL correto
+    sudo chown -R $USER:$USER /opt/habitus-forecast
+    cd /opt/habitus-forecast
+    ```
+    > **Nota de Permissão:** O `chown` acima define o usuário atual como proprietário. Se você planeja usar `user: "${UID_GID}"` no `docker-compose.prod.yml`, certifique-se de que o `UID` e `GID` correspondam a este usuário.
 
-Baixe o código-fonte do Habitus Forecast do repositório Git:
+2.  **Estrutura Esperada do Projeto:**
+    Verifique a presença de `Dockerfile`, `docker-compose.prod.yml`, `client/Dockerfile.client`, `nginx/nginx.conf`, `app/`, etc.
 
-```bash
-# Navegue para o diretório onde deseja armazenar o projeto
-cd /opt
+## Configuração do Ambiente (`.env.prod`)
 
-# Clone o repositório (substitua pelo URL correto do seu repositório)
-sudo git clone https://github.com/seu-usuario/habitus-forecast.git
-
-# Defina as permissões corretas
-sudo chown -R $USER:$USER /opt/habitus-forecast
-cd habitus-forecast
-```
-
-### 2. Verificação da Estrutura do Projeto
-
-Verifique se o repositório foi clonado corretamente e se todos os arquivos necessários estão presentes:
+Crie e configure o arquivo `.env.prod` na raiz do projeto (`/opt/habitus-forecast/.env.prod`):
 
 ```bash
-# Lista os arquivos no diretório raiz do projeto
-ls -la
-
-# Verifica se os arquivos Docker essenciais existem
-ls -la Dockerfile docker-compose*.yml
-```
-
-Você deve ver a seguinte estrutura básica:
-- `Dockerfile`: Define como construir a imagem Docker da API
-- `docker-compose.yml`: Configuração Docker Compose para desenvolvimento
-- `docker-compose.prod.yml`: Configuração Docker Compose para produção
-- `app/`: Diretório contendo o código da API Python
-- `client/`: Diretório contendo o código do frontend React
-- `nginx/`: Configurações do servidor Nginx
-- `scripts/`: Scripts de utilidade, como backup
-
-## Configuração do Ambiente
-
-### 1. Criação do Arquivo .env para Produção
-
-Crie um arquivo `.env.prod` para configurar as variáveis de ambiente necessárias:
-
-```bash
-# Navegue para o diretório do projeto
-cd /opt/habitus-forecast
-
-# Crie o arquivo .env.prod
-touch .env.prod
-
-# Abra o arquivo para edição
 nano .env.prod
 ```
 
-Adicione as seguintes variáveis ao arquivo `.env.prod`:
+Conteúdo exemplo para `.env.prod`:
 
 ```env
-# Configurações gerais
+# Configurações Gerais
 ENVIRONMENT=production
 DEBUG=False
 API_PREFIX=/api/v1
-PORT=8000
-WORKERS=4
+PORT=8000 # Porta interna da API
+WORKERS=4 # Número de workers Uvicorn
 
 # Configurações do MongoDB
-MONGO_INITDB_ROOT_USERNAME=admin
-MONGO_INITDB_ROOT_PASSWORD=sua_senha_segura_aqui
+MONGO_INITDB_ROOT_USERNAME=admin_habitus
+MONGO_INITDB_ROOT_PASSWORD=coloque_uma_senha_muito_segura_aqui
 MONGODB_DB=habitus-prod
 
-# Configuração de segurança
-SECRET_KEY=sua_chave_secreta_super_segura_com_pelo_menos_32_caracteres
+# Segurança da API
+SECRET_KEY=gere_uma_chave_secreta_forte_com_openssl_rand_hex_32
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Configurações CORS
-CORS_ORIGINS=http://localhost,http://localhost:3000,https://seu-dominio.com
+# CORS - Configure seus domínios permitidos
+CORS_ORIGINS=https://seu-dominio.com,https://www.seu-dominio.com
 
-# Configurações do sistema
-UPLOAD_FOLDER=./uploads
-MAX_UPLOAD_SIZE=10485760
+# Uploads (se aplicável)
+# UPLOAD_FOLDER=./uploads
+# MAX_UPLOAD_SIZE=10485760 # 10MB
 
-# Configurações de domínio
+# Domínio (usado em configurações, ex: Nginx, CORS)
 DOMAIN=seu-dominio.com
+
+# UID/GID para permissões de volume (opcional, mas recomendado)
+# Execute `id -u` e `id -g` no terminal do host para obter os valores
+# UID_GID=1000:1000 # Exemplo: UID:GID
+
+# Variáveis específicas do Frontend (se o Dockerfile.client precisar)
+# REACT_APP_API_URL=https://api.seu-dominio.com/api/v1 # Já definido como arg no docker-compose
 ```
 
-> **IMPORTANTE**: Substitua `sua_senha_segura_aqui`, `sua_chave_secreta_super_segura_com_pelo_menos_32_caracteres` e `seu-dominio.com` por valores reais. Para gerar uma chave secreta segura, você pode usar:
-> ```bash
-> openssl rand -hex 32
-> ```
+> **IMPORTANTE:**
+> - Substitua os valores de exemplo (senhas, chaves, domínio).
+> - Gere `SECRET_KEY` com: `openssl rand -hex 32`.
+> - Se for usar `user: "${UID_GID}"` no `docker-compose.prod.yml` para os serviços `api` ou `frontend` para evitar problemas de permissão com volumes montados (como `./logs`), descomente e defina `UID_GID` com o ID do seu usuário e grupo no host (ex: `1000:1000`).
 
-### 2. Geração de Certificado SSL Temporário (Opcional)
+## Etapa 1: Implantação do Backend (API) e Banco de Dados (MongoDB)
 
-Se você ainda não tem um certificado SSL, pode criar um certificado autoassinado temporário:
+### Ajustes no Código da API (Pydantic e MongoDB)
 
-```bash
-# Crie um diretório para armazenar certificados SSL
-mkdir -p /opt/habitus-forecast/ssl
+Antes de construir a imagem da API, verifique e corrija os seguintes pontos no código-fonte da API:
 
-# Gere um certificado SSL autoassinado
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /opt/habitus-forecast/ssl/privkey.pem \
-  -out /opt/habitus-forecast/ssl/fullchain.pem \
-  -subj "/C=BR/ST=Estado/L=Cidade/O=Organização/CN=seu-dominio.com"
-  
-# Defina as permissões corretas
-sudo chown -R $USER:$USER /opt/habitus-forecast/ssl
-```
+1.  **Pydantic `BaseSettings`:**
+    Se sua API usa Pydantic para configurações, a importação de `BaseSettings` mudou.
+    - Adicione `pydantic-settings` ao seu arquivo `requirements.txt` (ou similar) da API.
+    - No arquivo de configuração da API (ex: `app/core/config.py`):
+      ```python
+      # Altere de:
+      # from pydantic import BaseSettings
+      # Para:
+      from pydantic_settings import BaseSettings
+      ```
 
-> **Nota**: Este certificado autoassinado é apenas para teste. Para produção, você deve usar um certificado válido, como os fornecidos pelo Let's Encrypt (instruções mais adiante).
+2.  **Conexão com MongoDB (`get_db` vs `get_database`):**
+    Verifique o módulo de conexão com o MongoDB (ex: `app/db/mongodb.py` ou `app/database.py`). Certifique-se de que o nome da função usada para obter a instância do banco de dados é consistente com o que é chamado em outras partes da API.
+    Exemplo (`app/db/mongodb.py`):
+    ```python
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from app.core.config import settings # Supondo que suas settings estão aqui
 
-## Construção e Inicialização dos Containers
+    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    # O nome do banco de dados é geralmente pego das settings
+    database = client[settings.MONGODB_DB]
 
-### 1. Construção das Imagens Docker
+    async def get_db(): # Ou get_database(), padronize o nome
+        return database
+    ```
+    Adapte conforme a estrutura do seu projeto.
 
-Construa as imagens Docker para a API e o frontend:
+3.  **Permissões de Scripts em `docker-entrypoint.d`:**
+    Se você tiver scripts em um diretório como `/docker-entrypoint.d/` (comum em algumas imagens base) que precisam ser executados (ex: `40-env.sh`), garanta que eles tenham permissão de execução no `Dockerfile` da API.
+    Exemplo no `Dockerfile` da API:
+    ```dockerfile
+    # ... outras instruções ...
+    COPY ./docker-entrypoint.d/ /docker-entrypoint.d/
+    RUN chmod +x /docker-entrypoint.d/*.sh
+    # ... ou use COPY --chmod=0755 se sua versão do Docker suportar
+    # COPY --chmod=0755 ./docker-entrypoint.d/ /docker-entrypoint.d/
+    # ... outras instruções ...
+    ```
 
-```bash
-# Navegue para o diretório do projeto
-cd /opt/habitus-forecast
+### Construção e Inicialização (API e MongoDB)
 
-# Construa as imagens usando docker-compose
-sudo docker-compose -f docker-compose.prod.yml build
-```
-
-Este processo pode levar alguns minutos, pois ele baixa todas as dependências necessárias e compila as imagens.
-
-### 2. Inicialização dos Containers
-
-Inicie os containers usando o Docker Compose:
-
-```bash
-# Inicie os containers em modo detached (background)
-sudo docker-compose -f docker-compose.prod.yml up -d
-```
-
-O Docker Compose irá iniciar todos os serviços definidos no arquivo `docker-compose.prod.yml`:
-- API (Python/FastAPI)
-- Frontend (React/Nginx)
-- MongoDB
-- Serviço de backup
-
-### 3. Verificação dos Containers em Execução
-
-Verifique se todos os containers estão em execução:
-
-```bash
-# Lista todos os containers em execução
-docker ps
-
-# Verifica os logs da API
-docker logs habitus-forecast-api-prod
-
-# Verifica os logs do frontend
-docker logs habitus-forecast-frontend-prod
-
-# Verifica os logs do MongoDB
-docker logs habitus-forecast-mongo-prod
-```
-
-## Configuração do Servidor Web e SSL
-
-### 1. Configuração do Let's Encrypt com Certbot
-
-Para obter um certificado SSL válido para seu domínio, você pode usar o Let's Encrypt com o Certbot:
-
-```bash
-# Pare os containers temporariamente
-docker-compose -f docker-compose.prod.yml down
-
-# Instale o Certbot
-sudo apt install -y certbot
-
-# Obtenha um certificado SSL
-sudo certbot certonly --standalone -d seu-dominio.com -d www.seu-dominio.com
-
-# Copie os certificados para o diretório do projeto
-sudo cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/
-sudo cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/
-
-# Ajuste as permissões
-sudo chown -R $USER:$USER /opt/habitus-forecast/ssl
-```
-
-> **Nota**: Substitua `seu-dominio.com` pelo seu nome de domínio real. Certifique-se de que seu domínio está configurado para apontar para o IP da sua VPS e que as portas 80 e 443 estão abertas.
-
-### 2. Configuração do Nginx para HTTPS
-
-Edite o arquivo de configuração do Nginx para habilitar HTTPS:
-
-```bash
-# Abra o arquivo de configuração do Nginx
-nano /opt/habitus-forecast/nginx/nginx.conf
-```
-
-Atualize a configuração para suportar HTTPS:
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name seu-dominio.com www.seu-dominio.com;
+1.  **Criar diretórios necessários (se não existirem):**
+    ```bash
+    mkdir -p /opt/habitus-forecast/logs
+    mkdir -p /opt/habitus-forecast/backups
+    mkdir -p /opt/habitus-forecast/ssl
+    mkdir -p /opt/habitus-forecast/nginx # Para nginx.conf
+    # mkdir -p /opt/habitus-forecast/uploads # Se usar uploads
     
-    # Redireciona para HTTPS
-    return 301 https://$host$request_uri;
-}
+    # Crie um mongo-init.prod.js se necessário para inicializar usuários/índices
+    # Exemplo básico (adapte conforme sua necessidade):
+    cat << EOF > /opt/habitus-forecast/mongo-init.prod.js
+    db = db.getSiblingDB(\'${MONGO_INITDB_DATABASE}\');
+    db.createUser({
+      user: \'${MONGO_INITDB_ROOT_USERNAME}\',
+      pwd: \'${MONGO_INITDB_ROOT_PASSWORD}\',
+      roles: [{ role: \'readWrite\', db: \'${MONGO_INITDB_DATABASE}\' }]
+    });
+    // Você pode adicionar a criação de coleções ou índices aqui
+    // db.createCollection(\'nome_da_colecao\');
+    EOF
+    ```
+    > **Nota:** O script `mongo-init.prod.js` será executado apenas na primeira vez que o volume do MongoDB for criado. As variáveis de ambiente como `${MONGO_INITDB_DATABASE}` são substituídas pelo Docker Compose no ambiente do container `mongo` e usadas pelo entrypoint do MongoDB.
 
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name seu-dominio.com www.seu-dominio.com;
+2.  **Construir as imagens e iniciar os serviços (API e MongoDB):**
+    Usaremos `docker compose` (com espaço) que é o comando para o plugin Docker Compose V2.
+    ```bash
+    cd /opt/habitus-forecast
+    sudo docker compose -f docker-compose.prod.yml pull # Baixa imagens base mais recentes
+    sudo docker compose -f docker-compose.prod.yml build --no-cache api mongo # Constrói apenas api e mongo (mongo usa imagem pronta)
+    sudo docker compose -f docker-compose.prod.yml up -d api mongo # Inicia apenas api e mongo
+    ```
+
+### Verificação (API e MongoDB)
+
+1.  **Verificar containers em execução:**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml ps
+    ```
+    Você deve ver os containers `api` (possivelmente 2 réplicas) e `mongo` com status `Up` ou `running`.
+
+2.  **Verificar logs:**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml logs -f api
+    sudo docker compose -f docker-compose.prod.yml logs -f mongo
+    ```
+    Procure por mensagens de erro. Para a API, você deve ver o Uvicorn iniciando. Para o MongoDB, procure por mensagens indicando que está pronto para conexões.
+
+3.  **Testar o endpoint de saúde da API (do host da VPS):**
+    Como a porta 8000 da API está mapeada, você pode testar localmente.
+    ```bash
+    curl http://localhost:8000/api/v1/health # Substitua pelo seu API_PREFIX se diferente
+    ```
+    Você deve receber uma resposta JSON de sucesso (ex: `{"status":"healthy"}`).
+
+## Etapa 2: Implantação do Frontend (React/Nginx)
+
+### Configuração do Nginx
+
+1.  **Crie/Verifique `nginx/nginx.conf`:**
+    O arquivo `nginx/nginx.conf` (caminho definido no `docker-compose.prod.yml`) deve ser configurado corretamente. O conteúdo foi fornecido em uma etapa anterior. Certifique-se que:
+    - `limit_req_zone` está no contexto `http {}`.
+    - `server_name` está definido com seu domínio.
+    - Os caminhos para os certificados SSL (`/etc/nginx/ssl/fullchain.pem` e `/etc/nginx/ssl/privkey.pem`) estão corretos (estes são os caminhos DENTRO do container do frontend).
+    - `proxy_pass http://api:8000;` aponta para o serviço da API.
+
+### Geração de Certificado SSL (Let's Encrypt)
+
+1.  **Instale o Certbot:**
+    ```bash
+    sudo apt install -y certbot python3-certbot-nginx
+    ```
+
+2.  **Obtenha o Certificado:**
+    Certifique-se que seu domínio (`seu-dominio.com`) já está apontando para o IP da sua VPS e que as portas 80 e 443 não estão bloqueadas pelo firewall e não estão sendo usadas por outros serviços no host.
+    ```bash
+    # Pare temporariamente qualquer serviço que possa estar usando a porta 80 no host
+    # Se o Nginx do frontend já estiver rodando via Docker na porta 80, pare-o:
+    # sudo docker compose -f docker-compose.prod.yml stop frontend
     
-    # Configurações SSL
-    ssl_certificate /etc/nginx/ssl/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:SSL:50m;
-    ssl_session_tickets off;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers off;
+    sudo certbot certonly --standalone -d seu-dominio.com -d www.seu-dominio.com --agree-tos -m seu_email@example.com --no-eff-email
+    ```
+    > **Nota:** Se a porta 80 estiver em uso pelo container do Nginx, você pode precisar pará-lo (`sudo docker compose -f docker-compose.prod.yml stop frontend`) ou usar o método `webroot` do Certbot se o Nginx já estiver servindo algum conteúdo.
+
+3.  **Copie os Certificados para o Diretório SSL do Projeto:**
+    O Nginx dentro do container do frontend espera os certificados no caminho especificado no volume (`./ssl:/etc/nginx/ssl:ro`).
+    ```bash
+    sudo mkdir -p /opt/habitus-forecast/ssl
+    sudo cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/fullchain.pem
+    sudo cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/privkey.pem
+    sudo chown -R $USER:$USER /opt/habitus-forecast/ssl # Garante permissões para o Docker montar
+    ```
+
+4.  **Configure a Renovação Automática:**
+    ```bash
+    echo "0 3 * * * root certbot renew --quiet && sudo cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/fullchain.pem && sudo cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/privkey.pem && sudo docker compose -f /opt/habitus-forecast/docker-compose.prod.yml restart frontend" | sudo tee -a /etc/crontab
+    ```
+    Ou use `sudo certbot renew --dry-run` para testar a renovação.
+
+### Construção e Inicialização (Frontend)
+
+1.  **Construa a imagem do frontend e inicie o serviço:**
+    ```bash
+    cd /opt/habitus-forecast
+    sudo docker compose -f docker-compose.prod.yml build --no-cache frontend
+    sudo docker compose -f docker-compose.prod.yml up -d frontend
+    ```
+    Pode ser necessário iniciar todos os serviços se eles não estiverem rodando:
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml up -d # Inicia todos os serviços definidos
+    ```
+
+### Verificação Final
+
+1.  **Verificar todos os containers:**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml ps
+    ```
+    Todos os serviços (api, mongo, frontend, backup) devem estar `Up`.
+
+2.  **Testar o Frontend no Navegador:**
+    Acesse `https://seu-dominio.com` no seu navegador. Você deve ver a aplicação Habitus Forecast.
+
+3.  **Testar a API através do domínio:**
+    Acesse `https://seu-dominio.com/api/v1/health` (ou o endpoint de saúde da sua API).
+
+4.  **Verificar Logs do Frontend:**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml logs -f frontend
+    ```
+    Procure por erros do Nginx.
+
+## Manutenção e Operações
+
+### Visualização de Logs
+
+```bash
+# Logs de um serviço específico (ex: api)
+sudo docker compose -f docker-compose.prod.yml logs -f api
+
+# Logs de todos os serviços
+sudo docker compose -f docker-compose.prod.yml logs -f
+```
+
+### Backup e Restauração do MongoDB
+
+O serviço `backup` no `docker-compose.prod.yml` está configurado para backups automáticos via cron dentro do container.
+
+1.  **Executar Backup Manual:**
+    O script `scripts/backup.sh` deve conter a lógica de backup (ex: `mongodump`).
+    Exemplo de `scripts/backup.sh` (crie este arquivo):
+    ```bash
+    #!/bin/bash
+    set -e # Sair imediatamente se um comando falhar
     
-    # Adiciona HSTS
-    add_header Strict-Transport-Security "max-age=63072000" always;
+    BACKUP_DIR="/backups"
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_NAME="${MONGO_DATABASE}_${TIMESTAMP}.gz"
+    LOG_FILE="${BACKUP_DIR}/backup_log.txt"
+
+    echo "Starting backup of ${MONGO_DATABASE} to ${BACKUP_NAME} at $(date)" >> "${LOG_FILE}"
     
-    # Configurações de segurança
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header X-Frame-Options SAMEORIGIN;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.seu-dominio.com/api/v1";
-    add_header Referrer-Policy strict-origin-when-cross-origin;
-
-    # Diretório raiz
-    root /usr/share/nginx/html;
-    index index.html;
-
-    # Rota para a API
-    location /api/ {
-        proxy_pass http://api:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-        proxy_redirect off;
-    }
-
-    # Rota para o aplicativo React
-    location / {
-        try_files $uri $uri/ /index.html;
-        add_header Cache-Control "no-store, no-cache, must-revalidate";
-    }
-    
-    # Configurações adicionais (como as existentes)
-    ...
-}
-```
-
-> **Nota**: Substitua `seu-dominio.com` pelo seu domínio real. Inclua quaisquer configurações adicionais específicas que você precise.
-
-### 3. Reinicialização dos Containers
-
-Após configurar o SSL, reinicie os containers para aplicar as alterações:
-
-```bash
-# Reinicie todos os containers
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## Verificação e Teste da Instalação
-
-### 1. Verificação dos Serviços
-
-Verifique se todos os serviços estão em execução:
-
-```bash
-# Verifica o status de todos os containers
-docker-compose -f docker-compose.prod.yml ps
-
-# Verifica a saúde dos containers (se algum estiver com problemas)
-docker ps --format "{{.Names}}: {{.Status}}"
-```
-
-### 2. Teste de Acesso à API
-
-Verifique se a API está respondendo:
-
-```bash
-# Teste usando curl
-curl -k https://seu-dominio.com/api/v1/
-
-# Para testar o endpoint de saúde
-curl -k https://seu-dominio.com/api/v1/health
-```
-
-Você deve receber uma resposta JSON indicando que a API está funcionando.
-
-### 3. Teste do Frontend
-
-Acesse o frontend em um navegador web:
-
-```
-https://seu-dominio.com
-```
-
-Você deve ver a página de login do Habitus Forecast.
-
-### 4. Verificação dos Logs
-
-Verifique os logs para identificar possíveis problemas:
-
-```bash
-# Logs da API
-docker logs habitus-forecast-api-prod
-
-# Logs do frontend
-docker logs habitus-forecast-frontend-prod
-
-# Logs do MongoDB
-docker logs habitus-forecast-mongo-prod
-```
-
-## Manutenção Básica
-
-### 1. Atualização da Aplicação
-
-Para atualizar a aplicação quando novas versões forem lançadas:
-
-```bash
-# Navegue para o diretório do projeto
-cd /opt/habitus-forecast
-
-# Busque as alterações mais recentes do repositório
-git pull
-
-# Reconstrua as imagens
-docker-compose -f docker-compose.prod.yml build
-
-# Reinicie os containers
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### 2. Backup dos Dados
-
-O serviço de backup está configurado para executar automaticamente, mas você também pode fazer backups manuais:
-
-```bash
-# Executar backup manual
-docker exec habitus-forecast-backup /usr/local/bin/backup.sh
-
-# Verificar backups existentes
-ls -la /opt/habitus-forecast/backups
-```
-
-Para restaurar um backup:
-
-```bash
-# Navegue para o diretório de backups
-cd /opt/habitus-forecast/backups
-
-# Liste os backups disponíveis
-ls -la
-
-# Restaure um backup específico (substitua pelo nome do seu arquivo de backup)
-docker exec -it habitus-forecast-mongo-prod mongorestore --gzip --archive=/backups/seu-arquivo-de-backup.gz --username admin --password sua_senha_admin --authenticationDatabase admin
-```
-
-### 3. Reinicialização dos Serviços
-
-Se precisar reiniciar serviços específicos:
-
-```bash
-# Reiniciar apenas a API
-docker restart habitus-forecast-api-prod
-
-# Reiniciar apenas o frontend
-docker restart habitus-forecast-frontend-prod
-
-# Reiniciar apenas o MongoDB
-docker restart habitus-forecast-mongo-prod
-
-# Reiniciar todos os serviços
-docker-compose -f docker-compose.prod.yml restart
-```
-
-### 4. Visualização de Logs
-
-Para acompanhar os logs em tempo real:
-
-```bash
-# Logs da API
-docker logs -f habitus-forecast-api-prod
-
-# Logs do frontend
-docker logs -f habitus-forecast-frontend-prod
-
-# Logs do MongoDB
-docker logs -f habitus-forecast-mongo-prod
-
-# Todos os logs do docker-compose
-docker-compose -f docker-compose.prod.yml logs -f
-```
-
-## Solução de Problemas Comuns
-
-### Problema: Containers não iniciam
-
-**Verificações**:
-1. Verifique os logs do container:
-   ```bash
-   docker logs nome-do-container
-   ```
-
-2. Verifique se o arquivo `.env.prod` existe e contém todas as variáveis necessárias:
-   ```bash
-   cat /opt/habitus-forecast/.env.prod
-   ```
-
-3. Verifique se há erros na configuração do Docker Compose:
-   ```bash
-   docker-compose -f docker-compose.prod.yml config
-   ```
-
-**Soluções possíveis**:
-- Verifique se todas as variáveis de ambiente estão definidas corretamente
-- Verifique se as portas necessárias não estão sendo usadas por outros serviços
-- Certifique-se de que o Docker tem permissões para acessar os volumes mapeados
-
-### Problema: Não é possível acessar a aplicação via navegador
-
-**Verificações**:
-1. Verifique se os containers estão em execução:
-   ```bash
-   docker ps
-   ```
-
-2. Teste a conexão localmente:
-   ```bash
-   curl -k https://localhost
-   ```
-
-3. Verifique a configuração do Nginx:
-   ```bash
-   docker exec habitus-forecast-frontend-prod nginx -t
-   ```
-
-**Soluções possíveis**:
-- Verifique se as portas 80 e 443 estão abertas no firewall
-- Certifique-se de que o domínio está configurado para apontar para o IP correto
-- Verifique se o certificado SSL está válido e configurado corretamente
-
-### Problema: Erros de Conexão com o MongoDB
-
-**Verificações**:
-1. Verifique os logs do MongoDB:
-   ```bash
-   docker logs habitus-forecast-mongo-prod
-   ```
-
-2. Verifique se o MongoDB está acessível pela API:
-   ```bash
-   docker exec habitus-forecast-api-prod curl -s mongo:27017
-   ```
-
-**Soluções possíveis**:
-- Verifique se as credenciais do MongoDB estão corretas no arquivo `.env.prod`
-- Certifique-se de que o volume do MongoDB está configurado corretamente
-- Reinicie o container do MongoDB para resolver problemas de conexão
-
-### Problema: Problemas de Desempenho
-
-**Verificações**:
-1. Verifique a utilização de recursos:
-   ```bash
-   docker stats
-   ```
-
-2. Verifique a utilização do disco:
-   ```bash
-   df -h
-   ```
-
-**Soluções possíveis**:
-- Aumente os limites de recursos para os containers no arquivo `docker-compose.prod.yml`
-- Verifique se há espaço suficiente em disco
-- Considere escalar horizontalmente adicionando mais réplicas da API
-
-## Segurança Básica
-
-### 1. Configuração do Firewall (UFW)
-
-Configure o firewall para permitir apenas o tráfego necessário:
-
-```bash
-# Instale o UFW se ainda não estiver instalado
-sudo apt install -y ufw
-
-# Configure as regras padrão
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-
-# Permita SSH
-sudo ufw allow ssh
-
-# Permita HTTP e HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# Habilite o firewall
-sudo ufw enable
-
-# Verifique o status
-sudo ufw status
-```
-
-### 2. Boas Práticas de Segurança com Docker
-
-#### Limitar recursos dos containers
-
-Edite o arquivo `docker-compose.prod.yml` para limitar recursos:
-
-```yaml
-services:
-  api:
-    # ... outras configurações ...
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-```
-
-#### Usar imagens oficiais e manter atualizadas
-
-Sempre use imagens oficiais do Docker Hub e mantenha-as atualizadas:
-
-```bash
-# Puxe as imagens mais recentes
-docker-compose -f docker-compose.prod.yml pull
-
-# Reconstrua as imagens
-docker-compose -f docker-compose.prod.yml build --no-cache
-```
-
-#### Proteger os segredos
-
-Nunca armazene segredos diretamente no código ou em imagens Docker:
-
-```bash
-# Verifique as permissões do arquivo .env.prod
-sudo chmod 600 /opt/habitus-forecast/.env.prod
-sudo chown $USER:$USER /opt/habitus-forecast/.env.prod
-```
-
-### 3. Atualizações de Segurança Regulares
-
-Mantenha o sistema operacional e os containers atualizados:
-
-```bash
-# Atualize o sistema
-sudo apt update && sudo apt upgrade -y
-
-# Atualize as imagens Docker
-docker-compose -f docker-compose.prod.yml pull
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### 4. Renovação Automática do Certificado SSL
-
-Configure a renovação automática do certificado Let's Encrypt:
-
-```bash
-# Teste a renovação
-sudo certbot renew --dry-run
-
-# Crie um script para atualizar os certificados no diretório do projeto
-cat > /opt/habitus-forecast/scripts/renew-ssl.sh << 'EOF'
-#!/bin/bash
-certbot renew --quiet
-cp /etc/letsencrypt/live/seu-dominio.com/fullchain.pem /opt/habitus-forecast/ssl/
-cp /etc/letsencrypt/live/seu-dominio.com/privkey.pem /opt/habitus-forecast/ssl/
-chown -R $(whoami):$(whoami) /opt/habitus-forecast/ssl
-docker restart habitus-forecast-frontend-prod
-EOF
-
-# Torne o script executável
-chmod +x /opt/habitus-forecast/scripts/renew-ssl.sh
-
-# Adicione ao crontab para execução automática (duas vezes por dia)
-(crontab -l 2>/dev/null; echo "0 0,12 * * * /opt/habitus-forecast/scripts/renew-ssl.sh") | crontab -
-```
-
-## Conclusão
-
-Parabéns! Você instalou e configurou com sucesso o Habitus Forecast usando Docker e docker-compose. Este guia cobriu todos os passos essenciais, desde a preparação do servidor até a configuração para produção e manutenção.
-
-Para obter suporte adicional, visite nossa documentação oficial ou entre em contato com nossa equipe de suporte.
-
----
-
-**Links Úteis**:
-- [Documentação Oficial do Docker](https://docs.docker.com/)
-- [Documentação do Docker Compose](https://docs.docker.com/compose/)
-- [Documentação do Nginx](https://nginx.org/en/docs/)
-- [Let's Encrypt](https://letsencrypt.org/docs/)
-- [Documentação do MongoDB](https://docs.mongodb.com/)
-
----
-
+    mongodump --host="${MONGO_HOST}" --port="${MONGO_PORT}" \
+              --username="${MONGO_USER}" --password="${MONGO_PASSWORD}" \
+              --authenticationDatabase=admin --db="${MONGO_DATABASE}" \
+              --archive="${BACKUP_DIR}/${BACKUP_NAME}" --gzip >> "${LOG_FILE}" 2>&1
+              
+    if [ $? -eq 0 ]; then
+      echo "Backup successful: ${BACKUP_NAME}" >> "${LOG_FILE}"
+      # Opcional: Remover backups antigos (ex: manter os últimos 7)
+      find "${BACKUP_DIR}" -name "${MONGO_DATABASE}_*.gz" -type f -mtime +7 -delete
+      echo "Old backups removed." >> "${LOG_FILE}"
+    else
+      echo "Backup failed for ${MONGO_DATABASE}" >> "${LOG_FILE}"
+      exit 1
+    fi
+    echo "----------------------------------------" >> "${LOG_FILE}"
+    ```
+    Torne-o executável: `chmod +x scripts/backup.sh`.
+
+    Para executar manualmente:
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml exec backup /usr/local/bin/backup.sh
+    ```
+    Os backups estarão em `/opt/habitus-forecast/backups` no host.
+
+2.  **Restaurar Backup:**
+    ```bash
+    # Exemplo com um arquivo de backup chamado meu_backup.gz
+    sudo docker compose -f docker-compose.prod.yml exec -T mongo mongorestore \
+        --username="${MONGO_INITDB_ROOT_USERNAME}" \
+        --password="${MONGO_INITDB_ROOT_PASSWORD}" \
+        --authenticationDatabase=admin \
+        --nsInclude="${MONGODB_DB}.*" \
+        --archive --gzip < /opt/habitus-forecast/backups/meu_backup.gz
+    ```
+    > **Nota:** Ajuste `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD` e `MONGODB_DB` conforme seu `.env.prod` ou use as variáveis de ambiente diretamente se o comando for executado de um contexto que as tenha. O comando `-T` desabilita a alocação de pseudo-TTY, útil para piping.
+
+### Atualização da Aplicação
+
+1.  **Baixar Alterações:**
+    ```bash
+    cd /opt/habitus-forecast
+    git pull origin main # Ou a branch relevante
+    ```
+2.  **Reconstruir Imagens (se houver mudanças no código ou Dockerfiles):**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml build --no-cache
+    ```
+3.  **Reiniciar Serviços:**
+    ```bash
+    sudo docker compose -f docker-compose.prod.yml up -d
+    ```
+4.  **Remover Imagens Antigas (Opcional):**
+    ```bash
+    sudo docker image prune -f
+    ```
+
+### Verificação de Integridade dos Containers
+
+- **Healthchecks:** O serviço `api` tem um healthcheck. Verifique o status:
+  ```bash
+  docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+  ```
+  Procure por `(healthy)` no status.
+- **`docker stats`:** Para monitorar o uso de recursos em tempo real:
+  ```bash
+  sudo docker stats
+  ```
+
+## Solução de Problemas Comuns (Troubleshooting)
+
+-   **`container_name` vs `deploy.replicas`:** Resolvido removendo `container_name` de serviços com `replicas` > 1.
+-   **Erro de importação Pydantic/MongoDB:** Siga as instruções na Etapa 1.
+-   **Nginx `limit_req_zone`:** Certifique-se que está no contexto `http{}` do `nginx.conf`.
+-   **Scripts não executáveis (ex: `/docker-entrypoint.d/`):** Verifique permissões no `Dockerfile` (use `RUN chmod +x` ou `COPY --chmod=0755`).
+-   **Erros de Permissão em Volumes Montados (Read-only filesystem):**
+    -   Verifique se o volume não está montado com `:ro` se escrita for necessária.
+    -   Use `user: "${UID_GID}"` no `docker-compose.prod.yml` para o serviço problemático (ex: `api`, `frontend` se Nginx precisar escrever logs em volumes montados do host que não sejam `/var/log/nginx`). Defina `UID_GID` no `.env.prod` com `id -u`:`id -g` do seu usuário no host.
+    -   Garanta que os diretórios no host (ex: `./logs`, `./uploads`) tenham permissões de escrita para o UID/GID especificado ou para o usuário padrão dentro do container.
+-   **Variáveis de Ambiente Não Carregadas:**
+    -   Verifique a sintaxe do `.env.prod` (sem espaços extras, sem aspas a menos que necessário).
+    -   Certifique-se que `env_file: - .env.prod` está no `docker-compose.prod.yml`.
+    -   Dentro do container, use `echo $NOME_DA_VARIAVEL` para testar.
+-   **Falha ao iniciar container:** `sudo docker compose -f docker-compose.prod.yml logs <nome_do_servico>` para ver a causa.
+-   **Problemas de rede entre containers:** Verifique se todos os containers estão na mesma `network` (`habitus-network-prod`). Use `docker network inspect habitus-network-prod`.
+-   **Frontend não carrega (erro 404/50x):** Verifique os logs do Nginx (`frontend` service). Problemas comuns incluem `proxy_pass` incorreto, build do React falho, ou configuração do `root` e `try_files` no Nginx.
+
+## Considerações de Segurança
+
+-   **Firewall (UFW):** Configure o firewall no host da VPS:
+    ```bash
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw allow ssh
+    sudo ufw allow http # Porta 80/tcp
+    sudo ufw allow https # Porta 443/tcp
+    sudo ufw enable
+    sudo ufw status
+    ```
+-   **Segredos:** Use o arquivo `.env.prod` (com permissões restritas: `sudo chmod 600 .env.prod`) e não exponha segredos no código ou em Dockerfiles.
+-   **Atualizações Regulares:** Mantenha o Ubuntu, Docker, e as imagens base dos seus containers atualizadas.
+-   **Nginx Headers de Segurança:** Configure headers como `Strict-Transport-Security`, `Content-Security-Policy` no `nginx.conf` conforme suas necessidades.
+-   **Limitar Recursos:** O `docker-compose.prod.yml` já define limites de CPU/memória. Ajuste conforme necessário.
+-   **Permissões de Arquivos no Host:** Garanta que diretórios montados como volumes (ex: `logs`, `ssl`, `backups`) tenham permissões apropriadas no host.
+
+--- 
 *Este documento é mantido pela equipe Habitus Forecast. Para sugestões ou correções, entre em contato conosco.* 
